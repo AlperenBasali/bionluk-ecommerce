@@ -7,8 +7,20 @@ header("Content-Type: application/json");
 
 require_once("../config/database.php");
 
-// Hata loglama için debug bilgilerini kaydediyoruz
 error_log("Gelen JSON: " . file_get_contents("php://input"));
+
+// OPTIONS isteği geldiyse hemen 200 dön
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    error_log("Geçersiz istek yöntemi.");
+    echo json_encode(["error" => "Geçersiz istek yöntemi. Sadece POST istekleri kabul edilir."]);
+    http_response_code(405);
+    exit;
+}
 
 if (!isset($conn)) {
     error_log("Veritabanı bağlantısı başarısız.");
@@ -17,84 +29,69 @@ if (!isset($conn)) {
     exit;
 }
 
-// OPTIONS isteği geldiyse 200 OK dön
-if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
-    http_response_code(200);
+$defaultImg = 'default.png';  // Varsayılan görsel adı
+
+// JSON verileri ve dosya aynı anda geliyorsa 'multipart/form-data' ile gelmiştir
+$categoryId = isset($_POST['id']) ? intval($_POST['id']) : null;
+$categoryName = isset($_POST['name']) ? trim($_POST['name']) : null;
+$parentId = isset($_POST['parent_id']) ? (int) $_POST['parent_id'] : null;
+$description = isset($_POST['description']) && $_POST['description'] !== "" ? trim($_POST['description']) : null;
+
+if (!$categoryId || !$categoryName) {
+    error_log("Eksik veri: ID veya kategori adı eksik.");
+    echo json_encode(["error" => "Eksik veri: ID ve kategori adı zorunludur."]);
+    http_response_code(400);
     exit;
 }
 
-// Sadece PUT isteklerine izin ver
-if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
-    $data = json_decode(file_get_contents("php://input"));
-    
-    // Gelen verileri kontrol et
-    if (!isset($data->id) || empty($data->name)) {
-        error_log("Eksik veya geçersiz veri: ID ve Kategori Adı zorunludur.");
-        echo json_encode(["error" => "Eksik veya geçersiz veri: ID ve Kategori Adı zorunludur."]);
-        http_response_code(400);
-        exit;
-    }
+// Görsel işlemleri
+$imgToSave = isset($_POST['img']) && $_POST['img'] !== "" ? $_POST['img'] : $defaultImg;
 
-    $categoryId = intval($data->id);
-    $categoryName = trim($data->name);
-    $parentId = isset($data->parent_id) ? (int) $data->parent_id : NULL;  // Parent_id'yi integer yapıyoruz
-    $img = isset($data->img) && $data->img !== "" ? trim($data->img) : null;
-    $description = isset($data->description) && $data->description !== "" ? trim($data->description) : null;
+if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+    $imgName = $_FILES['image']['name'];
+    $imgTmpName = $_FILES['image']['tmp_name'];
+    $imgExt = strtolower(pathinfo($imgName, PATHINFO_EXTENSION));
+    $allowedExt = ['jpg', 'jpeg', 'png', 'gif'];
 
-    // Eğer kategori adı boşsa hata döndür
-    if (empty($categoryName)) {
-        error_log("Kategori adı boş olamaz.");
-        echo json_encode(["error" => "Kategori adı boş olamaz."]);
-        http_response_code(400);
-        exit;
-    }
+    if (in_array($imgExt, $allowedExt)) {
+        $imgNewName = uniqid('category_', true) . '.' . $imgExt;
+        $imgDest = "../uploads/" . $imgNewName;
 
-    // SQL sorgusu
-    $sql = "UPDATE categories SET name = ?, parent_id = ?, image = ?, description = ? WHERE id = ?";
-    $stmt = $conn->prepare($sql);
-
-    if (!$stmt) {
-        error_log("SQL hazırlama hatası: " . $conn->error);
-        echo json_encode(["error" => "SQL hazırlama hatası: " . $conn->error]);
-        http_response_code(500);
-        exit;
-    }
-
-    // NULL değerleri yönetme
-    if (is_null($parentId)) {
-        $parentId = null;
-    }
-    if (is_null($img)) {
-        $img = null;
-    }
-    if (is_null($description)) {
-        $description = null;
-    }
-
-    // Bind parametrize
-    $stmt->bind_param(
-        "sissi",  // 's' => string, 'i' => integer
-        $categoryName, 
-        $parentId, 
-        $img, 
-        $description, 
-        $categoryId
-    );
-
-    if ($stmt->execute()) {
-        echo json_encode(["message" => "Kategori başarıyla güncellendi."]);
+        if (move_uploaded_file($imgTmpName, $imgDest)) {
+            $imgToSave = $imgNewName;
+        } else {
+            echo json_encode(["error" => "Görsel yüklenemedi."]);
+            http_response_code(500);
+            exit;
+        }
     } else {
-        error_log("Veritabanı hatası: " . $stmt->error);
-        echo json_encode(["error" => "Veritabanı hatası: " . $stmt->error]);
-        http_response_code(500);
+        echo json_encode(["error" => "Geçersiz dosya türü."]);
+        http_response_code(400);
+        exit;
     }
-
-    $stmt->close();
-} else {
-    error_log("Geçersiz istek yöntemi.");
-    echo json_encode(["error" => "Geçersiz istek yöntemi."]);
-    http_response_code(405);
 }
 
+// SQL
+$sql = "UPDATE categories SET name = ?, parent_id = ?, image = ?, description = ? WHERE id = ?";
+$stmt = $conn->prepare($sql);
+
+if (!$stmt) {
+    error_log("SQL hazırlama hatası: " . $conn->error);
+    echo json_encode(["error" => "SQL hazırlama hatası: " . $conn->error]);
+    http_response_code(500);
+    exit;
+}
+
+$stmt->bind_param("sissi", $categoryName, $parentId, $imgToSave, $description, $categoryId);
+
+if ($stmt->execute()) {
+    echo json_encode(["message" => "Kategori başarıyla güncellendi."]);
+} else {
+    error_log("Veritabanı hatası: " . $stmt->error);
+    echo json_encode(["error" => "Veritabanı hatası: " . $stmt->error]);
+    http_response_code(500);
+}
+
+$stmt->close();
 $conn->close();
 ?>

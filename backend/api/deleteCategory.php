@@ -19,6 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
             echo json_encode(["message" => "Kategori başarıyla silindi."]);
         } else {
             echo json_encode(["error" => "Kategori silinirken hata oluştu."]);
+       
         }
         
         $stmt->close();

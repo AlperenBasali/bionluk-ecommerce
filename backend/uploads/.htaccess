@@ -1,0 +1,11 @@
+<IfModule mod_mime.c>
+    AddType image/jpeg .jpg .jpeg
+    AddType image/png .png
+    AddType image/gif .gif
+    AddType image/webp .webp
+</IfModule>
+
+<FilesMatch "\.(php|php5|php7|phps)$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
