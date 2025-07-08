@@ -1,0 +1,18 @@
+Array
+(
+    [name] => su
+    [kategori] => 11
+    [fiyat] => 3
+    [stok] => 5
+    [barkod] => 5
+    [agirlik] => 555
+    [boyutlar] => 555555
+    [aciklama] => selam
+    [varyant] => Array
+        (
+            [13] => su
+            [14] => 2
+            [15] => 3
+        )
+
+)
