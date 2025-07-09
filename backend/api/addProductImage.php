@@ -1,37 +1,65 @@
 <?php
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
+header("Access-Control-Allow-Methods: POST, OPTIONS");
 require_once '../config/database.php';
+
+function response($arr) {
+    header('Content-Type: application/json');
+    echo json_encode($arr);
+    exit;
+}
 
 $product_id = $_POST['product_id'] ?? null;
 $is_main = isset($_POST['is_main']) ? 1 : 0;
 
-// Dosya validasyonu
-if (!$product_id || !isset($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK) {
-    echo json_encode(['success' => false, 'msg' => 'Eksik ya da hatalı dosya']);
-    exit;
+if (!$product_id || !isset($_FILES['image'])) {
+    response(['success' => false, 'msg' => 'Eksik veri']);
 }
 
-// Sadece görsel yüklensin
-$allowed_types = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-if (!in_array($_FILES['image']['type'], $allowed_types)) {
-    echo json_encode(['success' => false, 'msg' => 'Sadece görsel yüklenebilir.']);
-    exit;
+// uploads dizini projenin kökünden olmalı (public erişime uygun)
+// Dikkat: ../uploads değil, doğrudan uploads/ kullanılmalı
+$uploads_dir = __DIR__ . '/../uploads/';
+if (!is_dir($uploads_dir)) {
+    mkdir($uploads_dir, 0777, true);
 }
 
-$uploads_dir = '../uploads/';
+$original_name = basename($_FILES["image"]["name"]);
+$ext = strtolower(pathinfo($original_name, PATHINFO_EXTENSION));
+$new_name = uniqid("img_") . "." . $ext;
+
+// Kaydedilecek yol: (veritabanına bu yazılacak)
+$db_image_url = "/uploads/" . $new_name;
+// Fiziksel path:
+$save_path = $uploads_dir . $new_name;
+
 $tmp_name = $_FILES["image"]["tmp_name"];
-$name = uniqid() . "_" . preg_replace('/[^A-Za-z0-9_\-.]/', '', basename($_FILES["image"]["name"]));
-
-// Yükle
-if (!move_uploaded_file($tmp_name, $uploads_dir.$name)) {
-    echo json_encode(['success' => false, 'msg' => 'Dosya taşınamadı.']);
-    exit;
+if (!move_uploaded_file($tmp_name, $save_path)) {
+    response(['success' => false, 'msg' => 'Dosya yüklenemedi.']);
 }
 
-// DB kaydı
+// Eğer is_main gönderildiyse, daha önce ana görsel olanları sıfırla
+if ($is_main) {
+    $conn->query("UPDATE product_images SET is_main = 0 WHERE product_id = " . intval($product_id));
+}
+
+// DB'ye tam yolu (uploads/...) kaydet
 $stmt = $conn->prepare("INSERT INTO product_images (product_id, image_url, is_main) VALUES (?, ?, ?)");
-$stmt->bind_param("isi", $product_id, $name, $is_main);
+$stmt->bind_param("isi", $product_id, $db_image_url, $is_main);
 $success = $stmt->execute();
+$insert_id = $stmt->insert_id;
 $stmt->close();
 
-echo json_encode(['success' => $success, 'image_url' => $name]);
+if ($success) {
+    response([
+        'success' => true,
+        'image_url' => $db_image_url, // Artık uploads/ ile başlıyor!
+        'id' => $insert_id,
+        'is_main' => $is_main
+    ]);
+} else {
+    @unlink($save_path); // DB kaydı olmazsa resmi sil
+    response(['success' => false, 'msg' => 'DB kayıt hatası']);
+}
+
 $conn->close();

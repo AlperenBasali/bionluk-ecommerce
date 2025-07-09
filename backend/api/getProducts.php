@@ -14,25 +14,25 @@ $res = $conn->query($sql);
 
 $products = [];
 while ($row = $res->fetch_assoc()) {
-    // --- Görselleri getir ---
+    // Görselleri getir
     $imgs = [];
     $main_image = null;
-    $res2 = $conn->query("SELECT image_url, is_main FROM product_images WHERE product_id = {$row['id']}");
+    $res2 = $conn->query("SELECT id, image_url, is_main FROM product_images WHERE product_id = {$row['id']}");
     while ($img = $res2->fetch_assoc()) {
-        $imgs[] = $img['image_url'];
+        $imgs[] = $img;
         if ($img['is_main']) {
             $main_image = $img['image_url'];
         }
     }
-    if (!$main_image && count($imgs) > 0) $main_image = $imgs[0];
+    if (!$main_image && count($imgs) > 0) $main_image = $imgs[0]['image_url'];
     $row['images'] = $imgs;
     $row['main_image'] = $main_image;
 
-    // --- Varyantları getir ---
+    // Varyantları array olarak getir!
     $vars = [];
-    $res3 = $conn->query("SELECT variant_name, value FROM product_variants WHERE product_id = {$row['id']}");
+    $res3 = $conn->query("SELECT id, variant_name, value FROM product_variants WHERE product_id = {$row['id']}");
     while ($var = $res3->fetch_assoc()) {
-        $vars[$var['variant_name']] = $var['value'];
+        $vars[] = $var;
     }
     $row['variants'] = $vars;
 
