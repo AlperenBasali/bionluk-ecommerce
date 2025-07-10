@@ -1,31 +1,37 @@
 <?php
+include "../config/database.php";
 
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Headers: Content-Type, Authorization");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE");
+$category_id = $_GET['category_id'] ?? null;
 
-require_once '../config/database.php';
-
-header('Content-Type: application/json; charset=UTF-8');
-
-$categoryId = $_GET['category_id'] ?? $_GET['categoryId'] ?? null;
-
-if (!$categoryId) {
+if ($category_id === null) {
     echo json_encode([]);
     exit;
 }
 
-$stmt = $conn->prepare("SELECT id, variant_name FROM category_variants WHERE category_id = ?");
-$stmt->bind_param("i", $categoryId);
-$stmt->execute();
-$result = $stmt->get_result();
+$conn = new mysqli($host, $username, $password, $dbname);
+if ($conn->connect_error) {
+    echo json_encode([]);
+    exit;
+}
+
+$category_id = (int)$category_id;
+
+$sql = "SELECT id, variant_name, variant_options FROM category_variants WHERE category_id = $category_id";
+$result = $conn->query($sql);
 
 $variants = [];
+
 while ($row = $result->fetch_assoc()) {
+    $row['options_array'] = [];
+
+    if (!empty($row['variant_options'])) {
+        $options = array_map('trim', explode(',', $row['variant_options']));
+        $row['options_array'] = $options;
+    }
+
     $variants[] = $row;
 }
 
 echo json_encode($variants);
-
-$stmt->close();
 $conn->close();
+?>

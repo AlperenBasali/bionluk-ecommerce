@@ -1,18 +1,18 @@
 Array
 (
-    [name] => kalem
+    [name] => selam
     [kategori] => 2
-    [fiyat] => 55
-    [stok] => 32
-    [barkod] => 
-    [agirlik] => 322
-    [boyutlar] => 2
-    [aciklama] => fsadasdsa
+    [fiyat] => 5
+    [stok] => 5
+    [barkod] => 5
+    [agirlik] => 5
+    [boyutlar] => 55
+    [aciklama] => 5
     [varyant] => Array
         (
-            [10] => 5
-            [12] => 4
-            [19] => 3
+            [12] => 5
+            [19] => 5
+            [22] => 5
         )
 
 )
