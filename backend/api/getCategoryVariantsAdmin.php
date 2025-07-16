@@ -28,7 +28,7 @@ while ($row = $result->fetch_assoc()) {
         $options = array_map('trim', explode(',', $row['variant_options']));
         foreach ($options as $opt) {
             $optionsArray[] = [
-                "id" => $opt,     // İstersen buraya uniqid veya sıralı sayı da verebilirsin
+                "id" => $opt,
                 "name" => $opt
             ];
         }
@@ -36,7 +36,8 @@ while ($row = $result->fetch_assoc()) {
 
     $variants[] = [
         "id" => $row['id'],
-        "name" => $row['variant_name'],
+        "variant_name" => $row['variant_name'],
+        "variant_options" => $row['variant_options'],
         "options" => $optionsArray
     ];
 }

@@ -1,18 +1,18 @@
 Array
 (
-    [name] => selam
+    [name] => don
     [kategori] => 2
     [fiyat] => 5
     [stok] => 5
-    [barkod] => 5
-    [agirlik] => 5
-    [boyutlar] => 55
-    [aciklama] => 5
+    [barkod] => aa
+    [agirlik] => 300
+    [boyutlar] => 4
+    [aciklama] => dsadas
     [varyant] => Array
         (
-            [12] => 5
+            [12] => Kırmızı
             [19] => 5
-            [22] => 5
+            [22] => XXL
         )
 
 )

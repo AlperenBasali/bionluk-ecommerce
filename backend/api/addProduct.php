@@ -83,23 +83,33 @@ foreach ($_POST as $key => $val) {
     }
 }
 
+// 4. Varyantları işle (seçilen seçenekleri kaydet)
 if (isset($_POST['varyant']) && is_array($_POST['varyant'])) {
     foreach ($_POST['varyant'] as $variant_id => $variant_value) {
-        // ID'den variant adını bul
-        $query = $conn->prepare("SELECT variant_name FROM category_variants WHERE id = ?");
-        $query->bind_param("i", $variant_id);
-        $query->execute();
-        $query->bind_result($variant_name);
-        $query->fetch();
-        $query->close();
+        $variant_id = intval($variant_id);
+        $variant_value = trim($variant_value);
 
-        // Ürüne ekle
-        $stmtVar = $conn->prepare("INSERT INTO product_variants (product_id, variant_name, value) VALUES (?, ?, ?)");
-        $stmtVar->bind_param("iss", $product_id, $variant_name, $variant_value);
-        $stmtVar->execute();
-        $stmtVar->close();
+        // 1. Varyant adını bul (category_variants'tan)
+        $stmtCV = $conn->prepare("SELECT variant_name FROM category_variants WHERE id = ?");
+        if (!$stmtCV) {
+            echo json_encode(['success' => false, 'error' => 'category_variants sorgusu hazırlanamadı']);
+            exit;
+        }
+        $stmtCV->bind_param("i", $variant_id);
+        $stmtCV->execute();
+        $stmtCV->bind_result($variant_name);
+        $stmtCV->fetch();
+        $stmtCV->close();
+
+        if ($variant_name && $variant_value) {
+            $stmtVar = $conn->prepare("INSERT INTO product_variants (product_id, variant_name, value) VALUES (?, ?, ?)");
+            $stmtVar->bind_param("iss", $product_id, $variant_name, $variant_value);
+            $stmtVar->execute();
+            $stmtVar->close();
+        }
     }
 }
+
 
 
 
