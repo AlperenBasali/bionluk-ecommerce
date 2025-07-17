@@ -1,18 +1,16 @@
 Array
 (
-    [name] => don
-    [kategori] => 2
+    [name] => YELEK
+    [kategori] => 63
     [fiyat] => 5
-    [stok] => 5
-    [barkod] => aa
-    [agirlik] => 300
-    [boyutlar] => 4
-    [aciklama] => dsadas
+    [stok] => 55
+    [barkod] => 5
+    [agirlik] => 55
+    [boyutlar] => 312
+    [aciklama] => 3123212132
     [varyant] => Array
         (
-            [12] => Kırmızı
-            [19] => 5
-            [22] => XXL
+            [24] => M
         )
 
 )

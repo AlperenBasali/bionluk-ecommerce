@@ -1,44 +1,78 @@
 <?php
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Headers: Content-Type, Authorization");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE");
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
-require_once '../config/database.php'; // Burada $conn bağlantısı olacak
+header('Content-Type: application/json');
+require_once '../config/database.php';
 
-$category_id = $_GET['category_id'] ?? null;
+$categoryId = isset($_GET['categoryId']) ? intval($_GET['categoryId']) : 0;
+$products = [];
 
-if (!$category_id) {
-    echo json_encode(["success" => false, "message" => "Kategori ID eksik."]);
-    exit;
-}
+if ($categoryId > 0) {
+    $sql = "
+        SELECT 
+            p.id, 
+            p.name, 
+            p.price, 
+            p.description,
+            p.created_at,
+            (
+                SELECT image_url 
+                FROM product_images 
+                WHERE product_id = p.id 
+                LIMIT 1
+            ) AS image,
+            (
+                SELECT ROUND(AVG(r.rating), 1)
+                FROM product_reviews r
+                WHERE r.product_id = p.id
+            ) AS average_rating
+        FROM products p
+        WHERE p.category_id = ?
+    ";
 
-// Tüm alt kategori ID'lerini bul (recursive)
-function getAllSubCategoryIds($conn, $parentId) {
-    $ids = [$parentId];
-    $query = "SELECT id FROM categories WHERE parent_id = $parentId";
-    $result = mysqli_query($conn, $query);
+    $stmt = $conn->prepare($sql);
 
-    while ($row = mysqli_fetch_assoc($result)) {
-        $ids = array_merge($ids, getAllSubCategoryIds($conn, $row['id']));
+    if (!$stmt) {
+        echo json_encode(["error" => "Ürün sorgusu hatası: " . $conn->error]);
+        exit;
     }
 
-    return $ids;
+    $stmt->bind_param("i", $categoryId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    while ($row = $result->fetch_assoc()) {
+        $productId = $row['id'];
+        $variants = [];
+
+        // VARYANTLARI ÇEK (product_variants tablosundan)
+        $variantSql = "
+            SELECT variant_name, value 
+            FROM product_variants 
+            WHERE product_id = ?
+        ";
+
+        $variantStmt = $conn->prepare($variantSql);
+
+        if ($variantStmt) {
+            $variantStmt->bind_param("i", $productId);
+            $variantStmt->execute();
+            $variantResult = $variantStmt->get_result();
+
+            while ($variantRow = $variantResult->fetch_assoc()) {
+                $variants[$variantRow['variant_name']] = $variantRow['value'];
+            }
+
+            $variantStmt->close();
+        }
+
+        $row['variants'] = $variants;
+        $products[] = $row;
+    }
+
+    $stmt->close();
 }
 
-$allCategoryIds = getAllSubCategoryIds($conn, $category_id);
-$allIdsString = implode(',', array_map('intval', $allCategoryIds)); // güvenlik için int'e çevir
-
-// Ürünleri getir
-$sql = "SELECT * FROM products WHERE category_id IN ($allIdsString)";
-$result = mysqli_query($conn, $sql);
-
-$products = [];
-while ($row = mysqli_fetch_assoc($result)) {
-    $products[] = $row;
-}
-
-echo json_encode([
-    "success" => true,
-    "products" => $products
-]);
-?>
+echo json_encode($products);
