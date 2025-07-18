@@ -32,23 +32,32 @@ while ($row = $result->fetch_assoc()) {
 $response["highlightedVariants"] = $highlighted;
 $stmt->close();
 
-// 2. Ürün Görsellerini Getir
-$stmt = $conn->prepare("SELECT image_url, is_main FROM product_images WHERE product_id = ?");
+// 2. Tüm Varyantlar
+$variantSql = "SELECT variant_name, value FROM product_variants WHERE product_id = ?";
+$stmt = $conn->prepare($variantSql);
 $stmt->bind_param("i", $product_id);
 $stmt->execute();
 $res = $stmt->get_result();
-$images = [];
+$allVariants = [];
 
-while ($img = $res->fetch_assoc()) {
-    $images[] = [
-        "url" => $img["image_url"],
-        "is_main" => $img["is_main"]
-    ];
+while ($row = $res->fetch_assoc()) {
+    $allVariants[] = $row;
 }
-$response["images"] = $images;
+$response["product"]["variants"] = $allVariants;
 $stmt->close();
 
-// (Opsiyonel) Başka ürün detayları da eklenebilir burada
+// 3. Ürün Bilgisi (ad, açıklama, fiyat)
+$productSql = "SELECT name, description, price FROM products WHERE id = ?";
+$stmt = $conn->prepare($productSql);
+$stmt->bind_param("i", $product_id);
+$stmt->execute();
+$res = $stmt->get_result();
+if ($row = $res->fetch_assoc()) {
+    $response["product"]["name"] = $row["name"];
+    $response["product"]["description"] = $row["description"];
+    $response["product"]["price"] = $row["price"];
+}
+$stmt->close();
 
 $response["success"] = true;
 echo json_encode($response);
