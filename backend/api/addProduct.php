@@ -110,6 +110,22 @@ if (isset($_POST['varyant']) && is_array($_POST['varyant'])) {
     }
 }
 
+$one_cikan = [];
+
+if (isset($_POST['one_cikan']) && is_array($_POST['one_cikan'])) {
+    foreach ($_POST['one_cikan'] as $index => $variant_id) {
+        $one_cikan[] = (int)$variant_id; // Güvenlik için int'e çeviriyoruz
+    }
+}
+foreach ($one_cikan as $variant_id) {
+    $stmt = $conn->prepare("INSERT INTO product_highlighted_variants (product_id, variant_id) VALUES (?, ?)");
+    $stmt->bind_param("ii", $product_id, $variant_id);
+    $stmt->execute();
+    $stmt->close();
+}
+
+
+
 
 
 

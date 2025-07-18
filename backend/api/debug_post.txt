@@ -1,16 +1,28 @@
 Array
 (
-    [name] => YELEK
-    [kategori] => 63
+    [name] => giyim5
+    [kategori] => 2
     [fiyat] => 5
-    [stok] => 55
-    [barkod] => 5
-    [agirlik] => 55
-    [boyutlar] => 312
-    [aciklama] => 3123212132
+    [stok] => 12
+    [barkod] => 55
+    [agirlik] => 13
+    [boyutlar] => 321
+    [aciklama] => desenli
     [varyant] => Array
         (
-            [24] => M
+            [12] => Kırmızı
+            [19] => 3
+            [22] => XL
+            [25] => 33
+            [26] => kareli
+        )
+
+    [one_cikan] => Array
+        (
+            [0] => 26
+            [1] => 22
+            [2] => 25
+            [3] => 12
         )
 
 )
