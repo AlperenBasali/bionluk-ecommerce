@@ -30,7 +30,7 @@ if ($result->num_rows === 1) {
 
     // Bildirim ve yönlendirme
     echo "Hesabınız başarıyla doğrulandı. 3 saniye içinde yönlendiriliyorsunuz...";
-    header("Refresh: 3; url=http://localhost:3000/admin");
+    header("Refresh: 3; url=http://localhost:3000/adminasdghjlkjhgfdsazxcvbnm3120");
     exit;
 } else {
     echo "Geçersiz veya süresi dolmuş doğrulama kodu.";
