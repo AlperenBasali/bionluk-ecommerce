@@ -1,4 +1,5 @@
 <?php
+session_start();
 require_once '../config/database.php';
 
 if (!isset($_GET['code'])) {
@@ -21,6 +22,13 @@ if ($result->num_rows === 1) {
     $updateStmt->bind_param("i", $admin['id']);
     $updateStmt->execute();
 
+    // Oturumu başlat
+    $_SESSION['admin_logged_in'] = true;
+    $_SESSION['admin_id'] = $admin['id'];
+    $_SESSION['admin_email'] = $admin['email'];
+    $_SESSION['last_activity'] = time();
+
+    // Bildirim ve yönlendirme
     echo "Hesabınız başarıyla doğrulandı. 3 saniye içinde yönlendiriliyorsunuz...";
     header("Refresh: 3; url=http://localhost:3000/admin");
     exit;
