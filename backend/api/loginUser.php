@@ -19,10 +19,29 @@ $data = json_decode(file_get_contents("php://input"), true);
 
 $email = trim($data["email"] ?? "");
 $password = trim($data["password"] ?? "");
+$ip_address = $_SERVER['REMOTE_ADDR'];
 
 if (!$email || !$password) {
     http_response_code(400);
     echo json_encode(["success" => false, "message" => "E-posta ve şifre gereklidir."]);
+    exit;
+}
+
+// 1. Son 15 dakikada bu e-posta ve IP için kaç başarısız giriş olmuş?
+$checkStmt = $conn->prepare("
+    SELECT COUNT(*) AS fail_count 
+    FROM login_attempts_user 
+    WHERE email = ? AND ip_address = ? AND attempt_time > (NOW() - INTERVAL 15 MINUTE)
+");
+$checkStmt->bind_param("ss", $email, $ip_address);
+$checkStmt->execute();
+$failResult = $checkStmt->get_result()->fetch_assoc();
+
+if ($failResult['fail_count'] >= 3) {
+    echo json_encode([
+        "success" => false,
+        "message" => "Çok fazla hatalı giriş denemesi. Lütfen 15 dakika sonra tekrar deneyin."
+    ]);
     exit;
 }
 
@@ -33,6 +52,11 @@ $result = $stmt->get_result();
 
 if ($user = $result->fetch_assoc()) {
     if (password_verify($password, $user["password"])) {
+        // Giriş başarılı, önceki hatalı girişleri silebilirsin (isteğe bağlı)
+        $deleteStmt = $conn->prepare("DELETE FROM login_attempts_user WHERE email = ? AND ip_address = ?");
+        $deleteStmt->bind_param("ss", $email, $ip_address);
+        $deleteStmt->execute();
+
         echo json_encode([
             "success" => true,
             "message" => "Giriş başarılı.",
@@ -42,6 +66,11 @@ if ($user = $result->fetch_assoc()) {
             ]
         ]);
     } else {
+        // Hatalı şifre, login_attempts_user tablosuna kaydet
+        $failStmt = $conn->prepare("INSERT INTO login_attempts_user (email, ip_address) VALUES (?, ?)");
+        $failStmt->bind_param("ss", $email, $ip_address);
+        $failStmt->execute();
+
         echo json_encode(["success" => false, "message" => "Şifre hatalı."]);
     }
 } else {
