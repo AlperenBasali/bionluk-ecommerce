@@ -45,13 +45,22 @@ if ($failResult['fail_count'] >= 3) {
     exit;
 }
 
-$stmt = $conn->prepare("SELECT id, email, password FROM users WHERE email = ?");
+// ✅ Giriş yapan kullanıcıyı ve doğrulama durumunu al
+$stmt = $conn->prepare("SELECT id, email, password, is_verified FROM users WHERE email = ?");
 $stmt->bind_param("s", $email);
 $stmt->execute();
 $result = $stmt->get_result();
 
 if ($user = $result->fetch_assoc()) {
     if (password_verify($password, $user["password"])) {
+        if ($user["is_verified"] != 1) {
+            echo json_encode([
+                "success" => false,
+                "message" => "Lütfen e-posta adresinizi doğrulayın."
+            ]);
+            exit;
+        }
+
         // Giriş başarılı, önceki hatalı girişleri silebilirsin (isteğe bağlı)
         $deleteStmt = $conn->prepare("DELETE FROM login_attempts_user WHERE email = ? AND ip_address = ?");
         $deleteStmt->bind_param("ss", $email, $ip_address);

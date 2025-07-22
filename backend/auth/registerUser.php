@@ -14,7 +14,7 @@ header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Content-Type: application/json");
 
 require_once "../config/database.php"; // $conn (mysqli) geliyor
-
+require_once "../mailer/sendVerificationMailUser.php"; // ✅ EKLENECEK
 $data = json_decode(file_get_contents("php://input"), true);
 
 $email = trim($data["email"] ?? "");
@@ -25,7 +25,7 @@ if (!$email || !$password) {
     echo json_encode(["success" => false, "message" => "E-posta ve şifre gereklidir."]);
     exit;
 }
-
+$verificationCode = bin2hex(random_bytes(32)); // ✅ Güvenli doğrulama kodu
 $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
 // Aynı e-mail varsa kayıt engelleniyor
@@ -38,11 +38,13 @@ if ($check->num_rows > 0) {
     exit;
 }
 
-$stmt = $conn->prepare("INSERT INTO users (email, password) VALUES (?, ?)");
-$stmt->bind_param("ss", $email, $hashedPassword);
+$stmt = $conn->prepare("INSERT INTO users (email, password, verification_code) VALUES (?, ?, ?)");
+$stmt->bind_param("sss", $email, $hashedPassword, $verificationCode);
+
 
 if ($stmt->execute()) {
-    echo json_encode(["success" => true, "message" => "Kayıt başarılı."]);
+    sendVerificationMail($email, $verificationCode); // ✅ Mail gönderimi
+    echo json_encode(["success" => true, "message" => "Kayıt başarılı. Lütfen e-posta adresinizi doğrulayın."]);
 } else {
     http_response_code(500);
     echo json_encode(["success" => false, "message" => "Kayıt hatası: " . $stmt->error]);
