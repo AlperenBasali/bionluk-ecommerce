@@ -125,3 +125,4 @@ function logFailedAttempt($conn, $email, $ip) {
     $stmt->execute();
     $stmt->close();
 }
+
