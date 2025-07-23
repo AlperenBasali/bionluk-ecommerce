@@ -1,4 +1,6 @@
 <?php
+session_start(); // ✅ Vendor ID kullanımı için
+
 file_put_contents('debug_post.txt', print_r($_POST, true));
 
 header("Access-Control-Allow-Origin: *");
@@ -6,6 +8,15 @@ header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE");
 
 require_once '../config/database.php';
+
+header('Content-Type: application/json');
+
+// ✅ Vendor ID kontrolü
+if (!isset($_SESSION['vendor_id'])) {
+    echo json_encode(['success' => false, 'error' => 'Giriş yapılmamış.']);
+    exit;
+}
+$vendor_id = $_SESSION['vendor_id'];
 
 // Temel veriler
 $category_id = $_POST['kategori'] ?? null;
@@ -17,12 +28,10 @@ $agirlik = $_POST['agirlik'] ?? null;
 $boyutlar = $_POST['boyutlar'] ?? null;
 $description = $_POST['aciklama'] ?? null;
 
-// 1. Ürün ekle
-$stmt = $conn->prepare("INSERT INTO products (category_id, name, price, stock, barcode, agirlik, boyutlar, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-$stmt->bind_param("isidssss", $category_id, $name, $price, $stock, $barcode, $agirlik, $boyutlar, $description);
+// 1. Ürün ekle (✅ vendor_id eklendi)
+$stmt = $conn->prepare("INSERT INTO products (vendor_id, category_id, name, price, stock, barcode, agirlik, boyutlar, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+$stmt->bind_param("iisidssss", $vendor_id, $category_id, $name, $price, $stock, $barcode, $agirlik, $boyutlar, $description);
 $success = $stmt->execute();
-
-header('Content-Type: application/json');
 
 if (!$success) {
     echo json_encode(['success' => false, 'error' => $stmt->error]);
@@ -61,12 +70,13 @@ foreach ($_FILES as $key => $file) {
         $stmtImg->close();
     }
 }
+
+// 4. Varyantları işle
 foreach ($_POST as $key => $val) {
     if (preg_match('/^varyant\[(.+)\]$/', $key, $matches)) {
         $variant_id = $matches[1];        // ID geliyor
         $variant_value = $val;
         
-        // ID'den adı bul!
         $stmtCV = $conn->prepare("SELECT variant_name FROM category_variants WHERE id = ?");
         $stmtCV->bind_param("i", $variant_id);
         $stmtCV->execute();
@@ -74,7 +84,7 @@ foreach ($_POST as $key => $val) {
         $stmtCV->fetch();
         $stmtCV->close();
 
-        if ($variant_name) { // Kontrol et, böyle bir id varsa devam et
+        if ($variant_name) {
             $stmtVar = $conn->prepare("INSERT INTO product_variants (product_id, variant_name, value) VALUES (?, ?, ?)");
             $stmtVar->bind_param("iss", $product_id, $variant_name, $variant_value);
             $stmtVar->execute();
@@ -83,13 +93,12 @@ foreach ($_POST as $key => $val) {
     }
 }
 
-// 4. Varyantları işle (seçilen seçenekleri kaydet)
+// 5. Alternatif varyant işle
 if (isset($_POST['varyant']) && is_array($_POST['varyant'])) {
     foreach ($_POST['varyant'] as $variant_id => $variant_value) {
         $variant_id = intval($variant_id);
         $variant_value = trim($variant_value);
 
-        // 1. Varyant adını bul (category_variants'tan)
         $stmtCV = $conn->prepare("SELECT variant_name FROM category_variants WHERE id = ?");
         if (!$stmtCV) {
             echo json_encode(['success' => false, 'error' => 'category_variants sorgusu hazırlanamadı']);
@@ -110,11 +119,11 @@ if (isset($_POST['varyant']) && is_array($_POST['varyant'])) {
     }
 }
 
+// 6. Öne çıkan varyantlar
 $one_cikan = [];
-
 if (isset($_POST['one_cikan']) && is_array($_POST['one_cikan'])) {
     foreach ($_POST['one_cikan'] as $index => $variant_id) {
-        $one_cikan[] = (int)$variant_id; // Güvenlik için int'e çeviriyoruz
+        $one_cikan[] = (int)$variant_id;
     }
 }
 foreach ($one_cikan as $variant_id) {
@@ -124,10 +133,7 @@ foreach ($one_cikan as $variant_id) {
     $stmt->close();
 }
 
-
-
-
-
+// ✅ Dönüş
 
 echo json_encode(['success' => true, 'product_id' => $product_id]);
 $conn->close();

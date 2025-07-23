@@ -1,4 +1,6 @@
 <?php
+session_start(); // ✅ Vendor kontrolü için gerekli
+
 include "../config/database.php";
 
 // CORS ve JSON header
@@ -12,6 +14,14 @@ if ($conn->connect_error) {
     exit;
 }
 
+// Giriş kontrolü
+if (!isset($_SESSION['vendor_id'])) {
+    echo json_encode(["success" => false, "message" => "Yetkisiz erişim."]);
+    exit;
+}
+
+$vendor_id = $_SESSION['vendor_id'];
+
 // Formdan gelen veriler
 $id = $_POST['id'] ?? null;
 $name = $_POST['name'] ?? "";
@@ -23,6 +33,18 @@ if (!$id) {
     echo json_encode(["success" => false, "message" => "Ürün ID gerekli."]);
     exit;
 }
+
+// ❗ Ürün gerçekten bu vendor'a mı ait?
+$stmtCheck = $conn->prepare("SELECT id FROM products WHERE id = ? AND vendor_id = ?");
+$stmtCheck->bind_param("ii", $id, $vendor_id);
+$stmtCheck->execute();
+$stmtCheck->store_result();
+if ($stmtCheck->num_rows === 0) {
+    echo json_encode(["success" => false, "message" => "Bu ürünü düzenleme yetkiniz yok."]);
+    $stmtCheck->close();
+    exit;
+}
+$stmtCheck->close();
 
 // 1. Ürün bilgilerini güncelle
 $stmt = $conn->prepare("UPDATE products SET name = ?, category_id = ?, price = ?, stock = ? WHERE id = ?");

@@ -47,7 +47,7 @@ $response["product"]["variants"] = $allVariants;
 $stmt->close();
 
 // 3. Ürün Bilgisi (ad, açıklama, fiyat)
-$productSql = "SELECT name, description, price FROM products WHERE id = ?";
+$productSql = "SELECT name, description, price, vendor_id FROM products WHERE id = ?";
 $stmt = $conn->prepare($productSql);
 $stmt->bind_param("i", $product_id);
 $stmt->execute();
@@ -56,6 +56,20 @@ if ($row = $res->fetch_assoc()) {
     $response["product"]["name"] = $row["name"];
     $response["product"]["description"] = $row["description"];
     $response["product"]["price"] = $row["price"];
+    $response["product"]["vendor_id"] = $row["vendor_id"];
+
+    // Ek: vendor_name çek
+    $vendor_id = (int)$row["vendor_id"];
+    $vendorStmt = $conn->prepare("SELECT full_name FROM vendor_details WHERE user_id = ?");
+    $vendorStmt->bind_param("i", $vendor_id);
+    $vendorStmt->execute();
+    $vendorRes = $vendorStmt->get_result();
+    if ($vendorRow = $vendorRes->fetch_assoc()) {
+        $response["product"]["vendor_name"] = $vendorRow["full_name"];
+    } else {
+        $response["product"]["vendor_name"] = null;
+    }
+    $vendorStmt->close();
 }
 $stmt->close();
 

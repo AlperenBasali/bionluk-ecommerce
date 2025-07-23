@@ -4,22 +4,28 @@ session_start(); // ✅ SESSION kullanılacağı için eklendi
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE");
+header("Content-Type: application/json");
 
 require_once '../config/database.php';
 
-// Eğer vendor giriş yaptıysa sadece onun ürünlerini çek
-$where = '';
-if (isset($_SESSION['vendor_id'])) {
-    $vendor_id = intval($_SESSION['vendor_id']);
-    $where = "WHERE p.vendor_id = $vendor_id";
+// Giriş kontrolü
+if (!isset($_SESSION['vendor_id'])) {
+    echo json_encode(["success" => false, "message" => "Yetkisiz erişim."]);
+    exit;
 }
+
+$vendor_id = intval($_SESSION['vendor_id']);
 
 $sql = "SELECT p.*, c.name AS category_name 
         FROM products p 
         LEFT JOIN categories c ON p.category_id = c.id 
-        $where
+        WHERE p.vendor_id = ?
         ORDER BY p.id DESC";
-$res = $conn->query($sql);
+
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $vendor_id);
+$stmt->execute();
+$res = $stmt->get_result();
 
 $products = [];
 while ($row = $res->fetch_assoc()) {
@@ -48,6 +54,5 @@ while ($row = $res->fetch_assoc()) {
     $products[] = $row;
 }
 
-header('Content-Type: application/json');
-echo json_encode(['products' => $products]);
+echo json_encode(['success' => true, 'products' => $products]);
 $conn->close();

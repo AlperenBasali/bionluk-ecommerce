@@ -5,11 +5,27 @@ error_reporting(E_ALL);
 
 header('Content-Type: application/json');
 require_once '../config/database.php';
-
 $categoryId = isset($_GET['categoryId']) ? intval($_GET['categoryId']) : 0;
 $products = [];
 
 if ($categoryId > 0) {
+
+    // ALT KATEGORİLERİ AL
+    $categoryIds = [$categoryId];
+
+    // Alt kategorileri bul (tek seviye alt kategori)
+    $subSql = "SELECT id FROM categories WHERE parent_id = ?";
+    $subStmt = $conn->prepare($subSql);
+    $subStmt->bind_param("i", $categoryId);
+    $subStmt->execute();
+    $subResult = $subStmt->get_result();
+    while ($row = $subResult->fetch_assoc()) {
+        $categoryIds[] = $row['id'];
+    }
+    $subStmt->close();
+
+    // SQL için dinamik "?, ?, ?" üret
+    $placeholders = implode(',', array_fill(0, count($categoryIds), '?'));
     $sql = "
         SELECT 
             p.id, 
@@ -29,17 +45,18 @@ if ($categoryId > 0) {
                 WHERE r.product_id = p.id
             ) AS average_rating
         FROM products p
-        WHERE p.category_id = ?
+        WHERE p.category_id IN ($placeholders)
     ";
 
     $stmt = $conn->prepare($sql);
-
     if (!$stmt) {
         echo json_encode(["error" => "Ürün sorgusu hatası: " . $conn->error]);
         exit;
     }
 
-    $stmt->bind_param("i", $categoryId);
+    // Dinamik parametre bağla
+    $types = str_repeat("i", count($categoryIds));
+    $stmt->bind_param($types, ...$categoryIds);
     $stmt->execute();
     $result = $stmt->get_result();
 
@@ -47,24 +64,15 @@ if ($categoryId > 0) {
         $productId = $row['id'];
         $variants = [];
 
-        // VARYANTLARI ÇEK (product_variants tablosundan)
-        $variantSql = "
-            SELECT variant_name, value 
-            FROM product_variants 
-            WHERE product_id = ?
-        ";
-
+        $variantSql = "SELECT variant_name, value FROM product_variants WHERE product_id = ?";
         $variantStmt = $conn->prepare($variantSql);
-
         if ($variantStmt) {
             $variantStmt->bind_param("i", $productId);
             $variantStmt->execute();
             $variantResult = $variantStmt->get_result();
-
             while ($variantRow = $variantResult->fetch_assoc()) {
                 $variants[$variantRow['variant_name']] = $variantRow['value'];
             }
-
             $variantStmt->close();
         }
 

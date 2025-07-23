@@ -1,28 +1,27 @@
 Array
 (
-    [name] => giyim7
-    [kategori] => 2
-    [fiyat] => 5
-    [stok] => 32
-    [barkod] => 55
-    [agirlik] => 32
-    [boyutlar] => 3
-    [aciklama] => dsafafsafsafas
+    [name] => giyim8
+    [kategori] => 63
+    [fiyat] => 555
+    [stok] => 555
+    [barkod] => 5
+    [agirlik] => 5
+    [boyutlar] => 5
+    [aciklama] => 5
     [varyant] => Array
         (
             [12] => Kırmızı
-            [19] => 3
-            [22] => M
+            [19] => 4
+            [22] => XL
+            [24] => M
             [25] => 33
-            [26] => kareli
+            [26] => geometrik
+            [28] => pamuklu
         )
 
     [one_cikan] => Array
         (
             [0] => 25
-            [1] => 22
-            [2] => 19
-            [3] => 12
         )
 
 )
