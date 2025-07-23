@@ -22,7 +22,8 @@ require_once '../config/database.php';
 
 $data = json_decode(file_get_contents("php://input"), true);
 
-$name = trim($data['name'] ?? '');
+// Tüm verileri al
+$full_name = trim($data['full_name'] ?? ''); // 🔁 Sadece name geliyor, biz bunu full_name gibi kullanıyoruz
 $email = trim($data['email'] ?? '');
 $password = trim($data['password'] ?? '');
 $phone = trim($data['phone'] ?? '');
@@ -31,13 +32,14 @@ $il = trim($data['il'] ?? '');
 $ilce = trim($data['ilce'] ?? '');
 $sirketTuru = trim($data['sirketTuru'] ?? '');
 
-if (!$name || !$email || !$password || !$phone || !$kategori || !$il || !$ilce || !$sirketTuru) {
+// Gerekli alanları kontrol et
+if (!$full_name || !$email || !$password || !$phone || !$kategori || !$il || !$ilce || !$sirketTuru) {
     http_response_code(400);
     echo json_encode(["success" => false, "message" => "Lütfen tüm alanları doldurun."]);
     exit;
 }
 
-// E-posta kontrolü
+// E-posta daha önce var mı kontrol et
 $checkStmt = $conn->prepare("SELECT id, role FROM users WHERE email = ?");
 $checkStmt->bind_param("s", $email);
 $checkStmt->execute();
@@ -57,7 +59,7 @@ if ($existing) {
         exit;
     }
 
-    // Customer ise vendor'a yükselt
+    // Eğer müşteri ise satıcıya yükselt
     $updateStmt = $conn->prepare("UPDATE users SET role = 'vendor', password = ? WHERE id = ?");
     $updateStmt->bind_param("si", $hashedPassword, $existing['id']);
     if (!$updateStmt->execute()) {
@@ -67,16 +69,15 @@ if ($existing) {
     $vendorId = $existing['id'];
     $updateStmt->close();
 } else {
-    // Yeni kayıt
-$insertStmt = $conn->prepare("INSERT INTO users (email, password, role, is_verified) VALUES (?, ?, 'vendor', 0)");
-if (!$insertStmt) {
-    http_response_code(500);
-    echo json_encode(["success" => false, "message" => "users prepare hatası: " . $conn->error]);
-    exit;
-}
+    // Yeni kullanıcı kaydı
+    $insertStmt = $conn->prepare("INSERT INTO users (email, password, role, is_verified) VALUES (?, ?, 'vendor', 0)");
+    if (!$insertStmt) {
+        http_response_code(500);
+        echo json_encode(["success" => false, "message" => "users prepare hatası: " . $conn->error]);
+        exit;
+    }
 
-$insertStmt->bind_param("ss", $email, $hashedPassword);
-
+    $insertStmt->bind_param("ss", $email, $hashedPassword);
 
     if (!$insertStmt->execute()) {
         echo json_encode(["success" => false, "message" => "Yeni kullanıcı kaydedilemedi."]);
@@ -87,19 +88,20 @@ $insertStmt->bind_param("ss", $email, $hashedPassword);
 }
 
 // vendor_details'a ekle
-// vendor_details'a ekle
-$detailsStmt = $conn->prepare("INSERT INTO vendor_details (`user_id`, `kategori`, `il`, `ilce`, `sirket_turu`, `phone`) VALUES (?, ?, ?, ?, ?, ?)");
+$detailsStmt = $conn->prepare("INSERT INTO vendor_details (`user_id`, `full_name`, `kategori`, `il`, `ilce`, `sirket_turu`, `phone`) VALUES (?, ?, ?, ?, ?, ?, ?)");
 if (!$detailsStmt) {
     error_log("vendor_details prepare hatası: " . $conn->error);
     echo json_encode(["success" => false, "message" => "Vendor detayları için sorgu hazırlanamadı."]);
     exit;
 }
-$detailsStmt->bind_param("isssss", $vendorId, $kategori, $il, $ilce, $sirketTuru, $phone);
+$detailsStmt->bind_param("issssss", $vendorId, $full_name, $kategori, $il, $ilce, $sirketTuru, $phone);
 
 if (!$detailsStmt->execute()) {
     error_log("vendor_details insert hatası: " . $detailsStmt->error);
     echo json_encode(["success" => false, "message" => "Vendor detayları eklenemedi."]);
     exit;
 }
+
+$detailsStmt->close();
 
 echo json_encode(["success" => true, "message" => "Başvuru başarılı."]);
