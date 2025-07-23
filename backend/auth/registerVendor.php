@@ -31,9 +31,10 @@ $kategori = trim($data['kategori'] ?? '');
 $il = trim($data['il'] ?? '');
 $ilce = trim($data['ilce'] ?? '');
 $sirketTuru = trim($data['sirketTuru'] ?? '');
+$username = trim($data['username'] ?? '');
 
 // Gerekli alanları kontrol et
-if (!$full_name || !$email || !$password || !$phone || !$kategori || !$il || !$ilce || !$sirketTuru) {
+if (!$full_name || !$email || !$password || !$phone || !$kategori || !$il || !$ilce || !$sirketTuru || !$username) {
     http_response_code(400);
     echo json_encode(["success" => false, "message" => "Lütfen tüm alanları doldurun."]);
     exit;
@@ -60,8 +61,8 @@ if ($existing) {
     }
 
     // Eğer müşteri ise satıcıya yükselt
-    $updateStmt = $conn->prepare("UPDATE users SET role = 'vendor', password = ? WHERE id = ?");
-    $updateStmt->bind_param("si", $hashedPassword, $existing['id']);
+    $updateStmt = $conn->prepare("UPDATE users SET role = 'vendor', password = ?, username = ?  WHERE id = ?");
+    $updateStmt->bind_param("ssi", $hashedPassword,$username , $existing['id']);
     if (!$updateStmt->execute()) {
         echo json_encode(["success" => false, "message" => "Mevcut kullanıcı güncellenemedi."]);
         exit;
@@ -70,14 +71,13 @@ if ($existing) {
     $updateStmt->close();
 } else {
     // Yeni kullanıcı kaydı
-    $insertStmt = $conn->prepare("INSERT INTO users (email, password, role, is_verified) VALUES (?, ?, 'vendor', 0)");
-    if (!$insertStmt) {
+$insertStmt = $conn->prepare("INSERT INTO users (email, username, password, role, is_verified) VALUES (?, ?, ?, 'vendor', 0)");    if (!$insertStmt) {
         http_response_code(500);
         echo json_encode(["success" => false, "message" => "users prepare hatası: " . $conn->error]);
         exit;
     }
 
-    $insertStmt->bind_param("ss", $email, $hashedPassword);
+    $insertStmt->bind_param("sss", $email,$username, $hashedPassword);
 
     if (!$insertStmt->execute()) {
         echo json_encode(["success" => false, "message" => "Yeni kullanıcı kaydedilemedi."]);
