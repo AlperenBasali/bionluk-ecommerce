@@ -47,12 +47,13 @@ $response["product"]["variants"] = $allVariants;
 $stmt->close();
 
 // 3. Ürün Bilgisi (ad, açıklama, fiyat)
-$productSql = "SELECT name, description, price, vendor_id FROM products WHERE id = ?";
+$productSql = "SELECT id,name, description, price, vendor_id FROM products WHERE id = ?";
 $stmt = $conn->prepare($productSql);
 $stmt->bind_param("i", $product_id);
 $stmt->execute();
 $res = $stmt->get_result();
 if ($row = $res->fetch_assoc()) {
+    $response["product"]["id"] = $row["id"];
     $response["product"]["name"] = $row["name"];
     $response["product"]["description"] = $row["description"];
     $response["product"]["price"] = $row["price"];
