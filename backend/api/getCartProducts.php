@@ -29,7 +29,11 @@ $sql = "SELECT
     p.vendor_id,
     v.full_name AS vendor_name,
     (
-        SELECT image_url FROM product_images WHERE product_id = p.id LIMIT 1
+        SELECT image_url 
+        FROM product_images 
+        WHERE product_id = p.id AND is_main = 1 
+        ORDER BY id ASC
+        LIMIT 1
     ) AS image,
     (
         SELECT GROUP_CONCAT(CONCAT(variant_name, ':', value) SEPARATOR ',')
@@ -41,6 +45,7 @@ INNER JOIN products p ON c.product_id = p.id
 INNER JOIN vendor_details v ON p.vendor_id = v.user_id
 WHERE c.user_id = ?
 ";
+
 
 $stmt = $conn->prepare($sql);
 if (!$stmt) {
@@ -59,6 +64,7 @@ $result = $stmt->get_result();
 $cartItems = [];
 
 while ($row = $result->fetch_assoc()) {
+    // Tüm varyantları diziye dönüştür
     $variantStr = $row['variants'];
     $variantArray = [];
 
@@ -70,17 +76,40 @@ while ($row = $result->fetch_assoc()) {
         }
     }
 
+    // image dosya adı
+    $imagePath = $row['image'];
+    $imageFile = $imagePath ? basename($imagePath) : null;
+
+    // highlightedVariants çek
+    $highlighted = [];
+    $hstmt = $conn->prepare("
+        SELECT cv.variant_name, pv.value
+        FROM product_highlighted_variants phv
+        JOIN category_variants cv ON phv.variant_id = cv.id
+        JOIN product_variants pv 
+            ON pv.product_id = phv.product_id AND pv.variant_name = cv.variant_name
+        WHERE phv.product_id = ?
+        LIMIT 2
+    ");
+    $hstmt->bind_param("i", $row['product_id']);
+    $hstmt->execute();
+    $hres = $hstmt->get_result();
+    while ($hrow = $hres->fetch_assoc()) {
+        $highlighted[] = $hrow;
+    }
+    $hstmt->close();
+
     $cartItems[] = [
         "id" => (int)$row['product_id'],
         "name" => $row['name'],
         "vendor" => $row['vendor_name'],
         "vendor_id" => (int)$row['vendor_id'],
-        // "rating" => (float)$row['rating'], // sadece tabloya eklendiğinde açılır
-        "image" => $row['image'],
+        "image" => $imageFile, // ✅ sadece dosya adı
         "quantity" => (int)$row['quantity'],
         "price" => (float)$row['price'],
         "variants" => $variantArray,
         "selected" => (bool)$row['selected'],
+        "highlightedVariants" => $highlighted
     ];
 }
 
