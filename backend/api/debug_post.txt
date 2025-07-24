@@ -1,27 +1,28 @@
 Array
 (
-    [name] => giyim8
-    [kategori] => 63
-    [fiyat] => 555
-    [stok] => 555
-    [barkod] => 5
-    [agirlik] => 5
-    [boyutlar] => 5
-    [aciklama] => 5
+    [name] => giyim4
+    [kategori] => 2
+    [fiyat] => 2500
+    [stok] => 12
+    [barkod] => 32
+    [agirlik] => 32
+    [boyutlar] => 32
+    [aciklama] => Lorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsum
     [varyant] => Array
         (
             [12] => Kırmızı
-            [19] => 4
-            [22] => XL
-            [24] => M
-            [25] => 33
+            [19] => 3
+            [22] => M
+            [25] => 35
             [26] => geometrik
-            [28] => pamuklu
         )
 
     [one_cikan] => Array
         (
-            [0] => 25
+            [0] => 12
+            [1] => 19
+            [2] => 22
+            [3] => 25
         )
 
 )
