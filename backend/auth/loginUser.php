@@ -1,6 +1,7 @@
 <?php
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    header("Access-Control-Allow-Origin: *");
+    header("Access-Control-Allow-Origin: http://localhost:3000");
+    header("Access-Control-Allow-Credentials: true");
     header("Access-Control-Allow-Headers: Content-Type");
     header("Access-Control-Allow-Methods: POST, OPTIONS");
     header("Content-Type: application/json");
@@ -8,12 +9,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Origin: http://localhost:3000");
+header("Access-Control-Allow-Credentials: true");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Content-Type: application/json");
 
-require_once "../config/database.php"; // mysqli $conn
+session_start();
+
+require_once "../config/database.php";
 
 $data = json_decode(file_get_contents("php://input"), true);
 
@@ -27,7 +31,7 @@ if (!$email || !$password) {
     exit;
 }
 
-// 1. Son 15 dakikada bu e-posta ve IP için kaç başarısız giriş olmuş?
+// Hatalı giriş kontrolü
 $checkStmt = $conn->prepare("
     SELECT COUNT(*) AS fail_count 
     FROM login_attempts_user 
@@ -45,7 +49,7 @@ if ($failResult['fail_count'] >= 3) {
     exit;
 }
 
-// ✅ Giriş yapan kullanıcıyı ve doğrulama durumunu al
+// Kullanıcı sorgusu
 $stmt = $conn->prepare("SELECT id, email, password, is_verified FROM users WHERE email = ?");
 $stmt->bind_param("s", $email);
 $stmt->execute();
@@ -61,7 +65,10 @@ if ($user = $result->fetch_assoc()) {
             exit;
         }
 
-        // Giriş başarılı, önceki hatalı girişleri silebilirsin (isteğe bağlı)
+        // ✅ Oturum atama
+        $_SESSION['user_id'] = $user["id"];
+
+        // Hatalı girişleri temizle
         $deleteStmt = $conn->prepare("DELETE FROM login_attempts_user WHERE email = ? AND ip_address = ?");
         $deleteStmt->bind_param("ss", $email, $ip_address);
         $deleteStmt->execute();
@@ -75,7 +82,6 @@ if ($user = $result->fetch_assoc()) {
             ]
         ]);
     } else {
-        // Hatalı şifre, login_attempts_user tablosuna kaydet
         $failStmt = $conn->prepare("INSERT INTO login_attempts_user (email, ip_address) VALUES (?, ?)");
         $failStmt->bind_param("ss", $email, $ip_address);
         $failStmt->execute();
