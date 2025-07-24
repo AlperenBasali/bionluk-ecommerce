@@ -1,28 +1,23 @@
 Array
 (
-    [name] => giyim4
-    [kategori] => 2
-    [fiyat] => 2500
-    [stok] => 12
+    [name] => urun9
+    [kategori] => 7
+    [fiyat] => 765
+    [stok] => 3
     [barkod] => 32
     [agirlik] => 32
     [boyutlar] => 32
-    [aciklama] => Lorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsum
+    [aciklama] => lorem loremloremloremloremloremloremloremloremloremloremloremloremlorem
     [varyant] => Array
         (
-            [12] => Kırmızı
-            [19] => 3
-            [22] => M
-            [25] => 35
-            [26] => geometrik
+            [11] => S
+            [27] => 100
         )
 
     [one_cikan] => Array
         (
-            [0] => 12
-            [1] => 19
-            [2] => 22
-            [3] => 25
+            [0] => 11
+            [1] => 27
         )
 
 )
