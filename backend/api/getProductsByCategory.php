@@ -13,27 +13,33 @@ $products = [];
 
 if ($vendorId > 0) {
     // Satıcıya ait ürünleri getir
-    $sql = "
-        SELECT 
-            p.id, 
-            p.name, 
-            p.price, 
-            p.description,
-            p.created_at,
-            (
-                SELECT image_url 
-                FROM product_images 
-                WHERE product_id = p.id 
-                LIMIT 1
-            ) AS image,
-            (
-                SELECT ROUND(AVG(r.rating), 1)
-                FROM product_reviews r
-                WHERE r.product_id = p.id
-            ) AS average_rating
-        FROM products p
-        WHERE p.vendor_id = ?
-    ";
+   $sql = "
+  SELECT 
+      p.id, 
+      p.name, 
+      p.price, 
+      p.description,
+      p.created_at,
+      (
+          SELECT image_url 
+          FROM product_images 
+          WHERE product_id = p.id 
+          LIMIT 1
+      ) AS image,
+      (
+          SELECT ROUND(AVG(r.rating), 1)
+          FROM product_reviews r
+          WHERE r.product_id = p.id
+      ) AS average_rating,
+      (
+          SELECT COUNT(*)
+          FROM product_reviews r
+          WHERE r.product_id = p.id
+      ) AS review_count
+  FROM products p
+  WHERE p.vendor_id = ?
+";
+
 
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
@@ -82,27 +88,33 @@ if ($vendorId > 0) {
     $subStmt->close();
 
     $placeholders = implode(',', array_fill(0, count($categoryIds), '?'));
-    $sql = "
-        SELECT 
-            p.id, 
-            p.name, 
-            p.price, 
-            p.description,
-            p.created_at,
-            (
-                SELECT image_url 
-                FROM product_images 
-                WHERE product_id = p.id 
-                LIMIT 1
-            ) AS image,
-            (
-                SELECT ROUND(AVG(r.rating), 1)
-                FROM product_reviews r
-                WHERE r.product_id = p.id
-            ) AS average_rating
-        FROM products p
-        WHERE p.category_id IN ($placeholders)
-    ";
+   $sql = "
+  SELECT 
+      p.id, 
+      p.name, 
+      p.price, 
+      p.description,
+      p.created_at,
+      (
+          SELECT image_url 
+          FROM product_images 
+          WHERE product_id = p.id 
+          LIMIT 1
+      ) AS image,
+      (
+          SELECT ROUND(AVG(r.rating), 1)
+          FROM product_reviews r
+          WHERE r.product_id = p.id
+      ) AS average_rating,
+      (
+          SELECT COUNT(*)
+          FROM product_reviews r
+          WHERE r.product_id = p.id
+      ) AS review_count
+  FROM products p
+  WHERE p.category_id IN ($placeholders)
+";
+
 
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
