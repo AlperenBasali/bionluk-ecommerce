@@ -39,11 +39,17 @@ $sql = "SELECT
         SELECT GROUP_CONCAT(CONCAT(variant_name, ':', value) SEPARATOR ',')
         FROM product_variants
         WHERE product_id = p.id
-    ) AS variants
+    ) AS variants,
+    (
+        SELECT ROUND(AVG(r.rating), 1)
+        FROM product_reviews r
+        WHERE r.product_id = p.id
+    ) AS rating
 FROM cart_items c
 INNER JOIN products p ON c.product_id = p.id
 INNER JOIN vendor_details v ON p.vendor_id = v.user_id
 WHERE c.user_id = ?
+
 ";
 
 
@@ -109,7 +115,8 @@ while ($row = $result->fetch_assoc()) {
         "price" => (float)$row['price'],
         "variants" => $variantArray,
         "selected" => (bool)$row['selected'],
-        "highlightedVariants" => $highlighted
+        "highlightedVariants" => $highlighted,
+        "rating" => isset($row['rating']) ? (float)$row['rating'] : null // ⭐️ BURASI YENİ
     ];
 }
 
