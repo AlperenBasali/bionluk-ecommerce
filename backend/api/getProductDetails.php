@@ -46,8 +46,8 @@ while ($row = $res->fetch_assoc()) {
 $response["product"]["variants"] = $allVariants;
 $stmt->close();
 
-// 3. Ürün Bilgisi (ad, açıklama, fiyat)
-$productSql = "SELECT id,name, description, price, vendor_id FROM products WHERE id = ?";
+// 3. Ürün Bilgisi (ad, açıklama, fiyat, satıcı)
+$productSql = "SELECT id, name, description, price, vendor_id FROM products WHERE id = ?";
 $stmt = $conn->prepare($productSql);
 $stmt->bind_param("i", $product_id);
 $stmt->execute();
@@ -59,7 +59,7 @@ if ($row = $res->fetch_assoc()) {
     $response["product"]["price"] = $row["price"];
     $response["product"]["vendor_id"] = $row["vendor_id"];
 
-    // Ek: vendor_name çek
+    // Satıcı adı getir
     $vendor_id = (int)$row["vendor_id"];
     $vendorStmt = $conn->prepare("SELECT full_name FROM vendor_details WHERE user_id = ?");
     $vendorStmt->bind_param("i", $vendor_id);
@@ -72,6 +72,14 @@ if ($row = $res->fetch_assoc()) {
     }
     $vendorStmt->close();
 }
+
+// ✅ Kuponları getir ve `product` objesine ekle
+$coupon_stmt = $conn->prepare("SELECT id, discount_amount, min_purchase_amount, expires_at FROM product_coupons WHERE product_id = ?");
+$coupon_stmt->bind_param("i", $product_id);
+$coupon_stmt->execute();
+$coupon_result = $coupon_stmt->get_result();
+$response["product"]["coupons"] = $coupon_result->fetch_all(MYSQLI_ASSOC);
+
 $stmt->close();
 
 $response["success"] = true;

@@ -29,7 +29,18 @@ $res = $stmt->get_result();
 
 $products = [];
 while ($row = $res->fetch_assoc()) {
-    // Görselleri getir
+
+    // ✅ Kuponu getir
+  // ✅ Kuponları getir (çoklu olacak şekilde)
+$coupon_sql = "SELECT id, discount_amount, min_purchase_amount, expires_at FROM product_coupons WHERE product_id = ?";
+$cstmt = $conn->prepare($coupon_sql);
+$cstmt->bind_param("i", $row['id']);
+$cstmt->execute();
+$coupon_result = $cstmt->get_result();
+$row['coupon'] = $coupon_result->fetch_all(MYSQLI_ASSOC); // dizi olarak döndür
+
+
+    // ✅ Görseller
     $imgs = [];
     $main_image = null;
     $res2 = $conn->query("SELECT id, image_url, is_main FROM product_images WHERE product_id = {$row['id']}");
@@ -43,7 +54,7 @@ while ($row = $res->fetch_assoc()) {
     $row['images'] = $imgs;
     $row['main_image'] = $main_image;
 
-    // Varyantları array olarak getir
+    // ✅ Varyantlar
     $vars = [];
     $res3 = $conn->query("SELECT id, variant_name, value FROM product_variants WHERE product_id = {$row['id']}");
     while ($var = $res3->fetch_assoc()) {

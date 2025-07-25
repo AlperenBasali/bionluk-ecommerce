@@ -80,11 +80,13 @@ while ($row = $result->fetch_assoc()) {
         $main_image = "http://localhost/bionluk-ecommerce/backend/uploads/default.png";
     }
 
-    // Ortalama puan
+    // Ortalama puan ve yorum sayısı
     $rating = 0;
-    $ratingRes = $conn->query("SELECT ROUND(AVG(rating),1) as rating FROM product_reviews WHERE product_id = $product_id");
+    $review_count = 0;
+    $ratingRes = $conn->query("SELECT ROUND(AVG(rating),1) as rating, COUNT(*) as count FROM product_reviews WHERE product_id = $product_id");
     if ($rRow = $ratingRes->fetch_assoc()) {
         $rating = $rRow["rating"] ?? 0;
+        $review_count = $rRow["count"] ?? 0;
     }
 
     $products[] = [
@@ -94,6 +96,7 @@ while ($row = $result->fetch_assoc()) {
         "price" => $row["price"],
         "main_image" => $main_image,
         "rating" => floatval($rating),
+        "review_count" => (int)$review_count, // ✅ EKLENDİ
         "link" => "/product/{$row["id"]}",
         "category_name" => $row["category_name"] ?? ''
     ];
