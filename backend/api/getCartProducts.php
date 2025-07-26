@@ -49,9 +49,7 @@ FROM cart_items c
 INNER JOIN products p ON c.product_id = p.id
 INNER JOIN vendor_details v ON p.vendor_id = v.user_id
 WHERE c.user_id = ?
-
 ";
-
 
 $stmt = $conn->prepare($sql);
 if (!$stmt) {
@@ -105,18 +103,40 @@ while ($row = $result->fetch_assoc()) {
     }
     $hstmt->close();
 
+    // coupons çek
+    $coupons = [];
+    $couponSql = "
+        SELECT c.id, c.discount_amount, c.min_purchase_amount
+        FROM product_coupons pc
+        JOIN coupons c ON pc.coupon_id = c.id
+        WHERE pc.product_id = ?
+    ";
+    $couponStmt = $conn->prepare($couponSql);
+    $couponStmt->bind_param("i", $row['product_id']);
+    $couponStmt->execute();
+    $couponRes = $couponStmt->get_result();
+    while ($couponRow = $couponRes->fetch_assoc()) {
+        $coupons[] = [
+            "id" => (int)$couponRow['id'],
+            "discount_amount" => (float)$couponRow['discount_amount'],
+            "min_purchase_amount" => (float)$couponRow['min_purchase_amount']
+        ];
+    }
+    $couponStmt->close();
+
     $cartItems[] = [
         "id" => (int)$row['product_id'],
         "name" => $row['name'],
         "vendor" => $row['vendor_name'],
         "vendor_id" => (int)$row['vendor_id'],
-        "image" => $imageFile, // ✅ sadece dosya adı
+        "image" => $imageFile,
         "quantity" => (int)$row['quantity'],
         "price" => (float)$row['price'],
         "variants" => $variantArray,
         "selected" => (bool)$row['selected'],
         "highlightedVariants" => $highlighted,
-        "rating" => isset($row['rating']) ? (float)$row['rating'] : null // ⭐️ BURASI YENİ
+        "rating" => isset($row['rating']) ? (float)$row['rating'] : null,
+        "coupons" => $coupons
     ];
 }
 
