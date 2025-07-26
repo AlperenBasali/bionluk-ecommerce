@@ -1,29 +1,51 @@
 <?php
+session_start();
+
 header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Headers: Content-Type");
-header("Access-Control-Allow-Methods: POST");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE");
+header("Access-Control-Allow-Credentials: true");
 header("Content-Type: application/json");
+
 require_once '../config/database.php';
 
-$data = json_decode(file_get_contents("php://input"), true);
-$product_id = intval($data['product_id'] ?? 0);
-$discount = floatval($data['discount_amount'] ?? 0);
-$min_amount = floatval($data['min_purchase_amount'] ?? 0);
-$expires_at = $data['expires_at'] ?? null;
-$coupon_id = isset($data['id']) ? intval($data['id']) : 0;
+// Hata ayarları
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
-if ($product_id === 0 || !$expires_at) {
-    echo json_encode(["success" => false, "message" => "Eksik veri."]);
+// Session kontrolü
+if (!isset($_SESSION['vendor_id'])) {
+    echo json_encode(["success" => false, "message" => "Yetkisiz erişim."]);
     exit;
 }
 
-if ($coupon_id > 0) {
-    $stmt = $conn->prepare("UPDATE product_coupons SET discount_amount = ?, min_purchase_amount = ?, expires_at = ? WHERE id = ? AND product_id = ?");
-    $stmt->bind_param("ddsii", $discount, $min_amount, $expires_at, $coupon_id, $product_id);
-} else {
-    $stmt = $conn->prepare("INSERT INTO product_coupons (product_id, discount_amount, min_purchase_amount, expires_at) VALUES (?, ?, ?, ?)");
-    $stmt->bind_param("idds", $product_id, $discount, $min_amount, $expires_at);
-}
+$data = json_decode(file_get_contents("php://input"), true);
 
-$success = $stmt->execute();
-echo json_encode(["success" => $success, "message" => $success ? "Başarılı" : "Hata oluştu."]);
+$product_id = intval($data['product_id']);
+$discount = floatval($data['discount_amount']);
+$min = floatval($data['min_purchase_amount']);
+$expires_at = $data['expires_at'];
+$coupon_id = isset($data['id']) ? intval($data['id']) : 0;
+
+if ($coupon_id > 0) {
+    // ✅ Var olan kuponu güncelle
+    $stmt = $conn->prepare("UPDATE coupons SET discount_amount = ?, min_purchase_amount = ?, expires_at = ? WHERE id = ?");
+    $stmt->bind_param("ddsi", $discount, $min, $expires_at, $coupon_id);
+    $success = $stmt->execute();
+
+    echo json_encode(["success" => $success]);
+} else {
+    // ✅ Yeni kupon ekle
+    $stmt = $conn->prepare("INSERT INTO coupons (discount_amount, min_purchase_amount, expires_at) VALUES (?, ?, ?)");
+    $stmt->bind_param("dds", $discount, $min, $expires_at);
+    $stmt->execute();
+    $new_coupon_id = $stmt->insert_id;
+
+    // ✅ Ürünle ilişkilendir
+    $stmt2 = $conn->prepare("INSERT INTO product_coupons (product_id, coupon_id) VALUES (?, ?)");
+    $stmt2->bind_param("ii", $product_id, $new_coupon_id);
+    $stmt2->execute();
+
+    echo json_encode(["success" => true]);
+}

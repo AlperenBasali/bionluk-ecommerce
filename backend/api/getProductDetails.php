@@ -73,14 +73,22 @@ if ($row = $res->fetch_assoc()) {
     $vendorStmt->close();
 }
 
-// ✅ Kuponları getir ve `product` objesine ekle
-$coupon_stmt = $conn->prepare("SELECT id, discount_amount, min_purchase_amount, expires_at FROM product_coupons WHERE product_id = ?");
+// ✅ Kuponları getir (JOIN ile detaylı veri al)
+$couponSql = "SELECT c.id, c.discount_amount, c.min_purchase_amount, c.expires_at
+              FROM product_coupons pc
+              JOIN coupons c ON pc.coupon_id = c.id
+              WHERE pc.product_id = ?";
+$coupon_stmt = $conn->prepare($couponSql);
 $coupon_stmt->bind_param("i", $product_id);
 $coupon_stmt->execute();
 $coupon_result = $coupon_stmt->get_result();
-$response["product"]["coupons"] = $coupon_result->fetch_all(MYSQLI_ASSOC);
 
-$stmt->close();
+$coupons = [];
+while ($row = $coupon_result->fetch_assoc()) {
+    $coupons[] = $row;
+}
+$response["product"]["coupons"] = $coupons;
+$coupon_stmt->close();
 
 $response["success"] = true;
 echo json_encode($response);

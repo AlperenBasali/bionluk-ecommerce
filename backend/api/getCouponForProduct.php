@@ -1,25 +1,29 @@
 <?php
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Headers: Content-Type");
-header("Access-Control-Allow-Methods: GET");
+require_once '../config/database.php';
 header("Content-Type: application/json");
 
-require_once '../config/database.php';
-
 $product_id = isset($_GET['product_id']) ? intval($_GET['product_id']) : 0;
-if ($product_id === 0) {
-    echo json_encode(["success" => false, "message" => "Ürün ID geçersiz."]);
+
+if ($product_id <= 0) {
+    echo json_encode(["success" => false, "message" => "Geçersiz ürün ID"]);
     exit;
 }
 
-$stmt = $conn->prepare("SELECT id, discount_amount, min_purchase_amount, expires_at FROM product_coupons WHERE product_id = ?");
+$sql = "
+  SELECT c.id, c.discount_amount, c.min_purchase_amount, c.expires_at
+  FROM coupons c
+  INNER JOIN product_coupons pc ON c.id = pc.coupon_id
+  WHERE pc.product_id = ?
+";
+
+$stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $product_id);
 $stmt->execute();
-$result = $stmt->get_result();
+$res = $stmt->get_result();
 
 $coupons = [];
-while ($row = $result->fetch_assoc()) {
-    $coupons[] = $row;
+while ($row = $res->fetch_assoc()) {
+  $coupons[] = $row;
 }
 
 echo json_encode(["success" => true, "coupons" => $coupons]);
