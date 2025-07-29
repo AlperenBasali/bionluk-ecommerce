@@ -1,28 +1,28 @@
 Array
 (
-    [name] => giyim10
-    [kategori] => 68
-    [fiyat] => 765
-    [stok] => 1
-    [barkod] => 312321
-    [agirlik] => 34
-    [boyutlar] => 32
-    [aciklama] => loremloremloremloremloremloremloremloremloremloremloremloremlorem
+    [name] => giyim12
+    [kategori] => 2
+    [fiyat] => 51
+    [stok] => 5
+    [barkod] => 33
+    [agirlik] => 3
+    [boyutlar] => 3
+    [aciklama] => lorem lorem loremloremloremloremlorem
     [varyant] => Array
         (
             [12] => Kırmızı
             [19] => 3
-            [22] => M
-            [25] => 34
+            [22] => S
+            [25] => 35
             [26] => geometrik
         )
 
     [one_cikan] => Array
         (
-            [0] => 12
+            [0] => 22
             [1] => 19
-            [2] => 22
-            [3] => 25
+            [2] => 12
+            [3] => 26
         )
 
 )
