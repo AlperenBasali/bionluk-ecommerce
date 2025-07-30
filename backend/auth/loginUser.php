@@ -50,7 +50,8 @@ if ($failResult['fail_count'] >= 3) {
 }
 
 // Kullanıcı sorgusu
-$stmt = $conn->prepare("SELECT id, email, password, is_verified FROM users WHERE email = ?");
+$stmt = $conn->prepare("SELECT id, email, password, is_verified, role FROM users WHERE email = ?
+");
 $stmt->bind_param("s", $email);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -67,7 +68,8 @@ if ($user = $result->fetch_assoc()) {
 
         // ✅ Oturum atama
         $_SESSION['user_id'] = $user["id"];
-
+        $_SESSION['role'] = $user["role"];
+        $_SESSION['username'] = $user["email"];
         // Hatalı girişleri temizle
         $deleteStmt = $conn->prepare("DELETE FROM login_attempts_user WHERE email = ? AND ip_address = ?");
         $deleteStmt->bind_param("ss", $email, $ip_address);

@@ -103,6 +103,8 @@ if ((int)$user['is_verified'] !== 1) {
 $_SESSION['vendor_logged_in'] = true;
 $_SESSION['vendor_id'] = $user['id'];
 $_SESSION['vendor_email'] = $user['email'];
+$_SESSION['user_id'] = $user['id'];        // 🔥 EKLENDİ
+$_SESSION['role'] = $user['role'];         // 🔥 EKLENDİ
 $_SESSION['last_activity'] = time();
 
 echo json_encode([
