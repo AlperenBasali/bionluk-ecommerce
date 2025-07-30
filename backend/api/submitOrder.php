@@ -16,13 +16,19 @@ $data = json_decode(file_get_contents("php://input"), true);
 
 // Gerekli veriler
 $billing_address_id = $data['billing_address_id'] ?? null;
-$card_name = $data['card_name'] ?? '';
-$card_number = $data['card_number'] ?? '';
-$expiry_month = $data['expiry_month'] ?? '';
-$expiry_year = $data['expiry_year'] ?? '';
-$cvv = $data['cvv'] ?? '';
-$grand_total = floatval($data['grand_total'] ?? 0); // ürünler + kargo - kupon
-$shipping_price = 50.00; // sabit kargo
+$card_name = trim($data['card_name'] ?? '');
+$card_number = trim($data['card_number'] ?? '');
+$expiry_month = trim($data['expiry_month'] ?? '');
+$expiry_year = trim($data['expiry_year'] ?? '');
+$cvv = trim($data['cvv'] ?? '');
+$grand_total = floatval($data['grand_total'] ?? 0);
+$shipping_price = 50.00; // sabit kargo ücreti
+
+// Basit ödeme doğrulama
+if (!$billing_address_id || !$card_name || strlen($card_number) !== 16 || strlen($cvv) !== 3) {
+    echo json_encode(["success" => false, "message" => "Geçersiz veya eksik ödeme bilgisi."]);
+    exit;
+}
 
 // 1. Seçili ürünleri al
 $sql = "SELECT c.product_id, c.quantity, p.price, p.vendor_id
@@ -35,8 +41,7 @@ $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
 
-$order_items = [];
-$vendor_orders = []; // vendor_id bazlı ürün gruplama
+$vendor_orders = [];
 
 while ($row = $result->fetch_assoc()) {
     $vendor_id = $row['vendor_id'];
@@ -52,6 +57,7 @@ if (empty($vendor_orders)) {
 }
 
 $conn->begin_transaction();
+
 try {
     $allOrderIds = [];
 
@@ -62,13 +68,13 @@ try {
         }
 
         // 2. orders tablosuna vendor bazlı sipariş ekle
-        $order_sql = "INSERT INTO orders (user_id, total_price, shipping_price, status, created_at, updated_at, vendor_id, address_id) 
-                      VALUES (?, ?, ?, 'hazırlanıyor', NOW(), NOW(), ?, ?)";
+        $order_sql = "INSERT INTO orders (user_id, vendor_id, total_price, shipping_price, status, address_id, created_at, updated_at) 
+                      VALUES (?, ?, ?, ?, 'hazırlanıyor', ?, NOW(), NOW())";
         $order_stmt = $conn->prepare($order_sql);
-        $order_stmt->bind_param("iddii", $user_id, $order_total, $shipping_price, $vendor_id, $billing_address_id);
+        $order_stmt->bind_param("iiddi", $user_id, $vendor_id, $order_total, $shipping_price, $billing_address_id);
         $order_stmt->execute();
 
-        $order_id = $order_stmt->insert_id;
+        $order_id = $conn->insert_id;
         $allOrderIds[] = $order_id;
 
         // 3. order_items tablosuna ürünleri ekle
