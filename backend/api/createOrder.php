@@ -61,11 +61,10 @@ foreach ($groupedCart as $vendor_id => $products) {
     }
     $order_total += floatval($item['price']) * intval($item['quantity']);
   }
+$stmt = $conn->prepare("INSERT INTO orders (user_id, vendor_id, total_price, shipping_price, address_id, status, created_at) VALUES (?, ?, ?, ?, ?, 'onay_bekliyor', NOW())");
+$stmt->bind_param("iiddi", $user_id, $vendor_id, $order_total, $shipping_price, $address_id);
 
-  $stmt = $conn->prepare("INSERT INTO orders (user_id, vendor_id, total_price, shipping_price, status, address_id, created_at) VALUES (?, ?, ?, ?, 'onay_bekliyor', ?, NOW())");
-  if (!$stmt) throw new Exception("Orders prepare hatası: " . $conn->error);
 
-  $stmt->bind_param("iiddi", $user_id, $vendor_id, $order_total, $shipping_price, $address_id);
   $stmt->execute();
   $order_id = $conn->insert_id;
   $orderIds[] = $order_id;

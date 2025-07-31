@@ -69,7 +69,7 @@ try {
 
         // 2. orders tablosuna vendor bazlı sipariş ekle
         $order_sql = "INSERT INTO orders (user_id, vendor_id, total_price, shipping_price, status, address_id, created_at, updated_at) 
-                      VALUES (?, ?, ?, ?, 'hazırlanıyor', ?, NOW(), NOW())";
+                      VALUES (?, ?, ?, ?, 'onay_bekliyor', ?, NOW(), NOW())";
         $order_stmt = $conn->prepare($order_sql);
         $order_stmt->bind_param("iiddi", $user_id, $vendor_id, $order_total, $shipping_price, $billing_address_id);
         $order_stmt->execute();
