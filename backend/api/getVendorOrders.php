@@ -7,7 +7,7 @@ require_once '../config/database.php';
 require_once '../auth/sessionHelper.php';
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: http://localhost:3000'); // React için
+header('Access-Control-Allow-Origin: http://localhost:3000');
 header('Access-Control-Allow-Credentials: true');
 
 if (!isUserLoggedIn()) {
@@ -17,16 +17,16 @@ if (!isUserLoggedIn()) {
 
 $vendor_id = getUserId();
 
-// SQL: vendor'a ait ürünleri, siparişler ile birlikte getir
 $sql = "
 SELECT 
   o.id AS order_id,
   o.user_id,
   o.total_price,
+  o.shipping_price,         -- ✅ EKLENDİ
+  o.coupon_discount,        -- ✅ EKLENDİ
   o.status AS order_status,
   o.created_at,
   u.username,
-  
 
   oi.id AS order_item_id,
   oi.product_id,
@@ -44,7 +44,6 @@ JOIN users u ON o.user_id = u.id
 WHERE oi.vendor_id = ?
 ORDER BY o.created_at DESC
 ";
-
 
 $stmt = $conn->prepare($sql);
 if (!$stmt) {
@@ -67,6 +66,8 @@ while ($row = $result->fetch_assoc()) {
     $orders[$orderId] = [
       "order_id" => $orderId,
       "total_price" => $row["total_price"],
+      "shipping_price" => $row["shipping_price"],         // ✅ EKLENDİ
+      "coupon_discount" => $row["coupon_discount"],       // ✅ EKLENDİ
       "order_status" => $row["order_status"],
       "created_at" => $row["created_at"],
       "username" => $row["username"],
@@ -80,8 +81,7 @@ while ($row = $result->fetch_assoc()) {
     "product_name" => $row["product_name"],
     "quantity" => $row["quantity"],
     "price" => $row["price"],
-    "status" => $row["order_status"], // eğer tüm ürünler aynı statüyü kullanacaksa
-
+    "status" => $row["order_status"],
     "image_url" => basename($row["image_url"] ?? 'default.png')
   ];
 }
