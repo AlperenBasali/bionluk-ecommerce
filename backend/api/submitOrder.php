@@ -106,14 +106,29 @@ try {
         $allOrderIds[] = $order_id;
 
         // 3. order_items tablosuna ürünleri ekle
-        $item_sql = "INSERT INTO order_items (order_id, product_id, vendor_id, quantity, price) 
-                     VALUES (?, ?, ?, ?, ?)";
-        $item_stmt = $conn->prepare($item_sql);
+      $item_sql = "INSERT INTO order_items (order_id, product_id, vendor_id, quantity, price, commission_amount) 
+             VALUES (?, ?, ?, ?, ?, ?)";
+$item_stmt = $conn->prepare($item_sql);
 
-        foreach ($items as $item) {
-            $item_stmt->bind_param("iiiid", $order_id, $item['product_id'], $vendor_id, $item['quantity'], $item['price']);
-            $item_stmt->execute();
-        }
+foreach ($items as $item) {
+    // Komisyon oranını çek
+    $commission_rate = 10.00; // default
+    $stmtComm = $conn->prepare("SELECT commission_rate FROM vendor_details WHERE user_id = ?");
+    $stmtComm->bind_param("i", $vendor_id);
+    $stmtComm->execute();
+    $resComm = $stmtComm->get_result();
+    if ($rowComm = $resComm->fetch_assoc()) {
+        $commission_rate = floatval($rowComm['commission_rate']);
+    }
+    $total_price = $item['price'] * $item['quantity'];
+    $commission_amount = $total_price * ($commission_rate / 100);
+
+    error_log("Sipariş item: order_id=$order_id, product_id={$item['product_id']}, komisyon_orani=$commission_rate, commission_amount=$commission_amount");
+
+    $item_stmt->bind_param("iiiidd", $order_id, $item['product_id'], $vendor_id, $item['quantity'], $item['price'], $commission_amount);
+    $item_stmt->execute();
+}
+
     }
 
     // 4. Sepetten seçili ürünleri sil

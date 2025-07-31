@@ -1,4 +1,6 @@
 <?php
+
+
 require '../config/database.php';
 session_start();
 

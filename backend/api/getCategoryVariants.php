@@ -1,16 +1,10 @@
 <?php
-include "../config/database.php";
+require_once "../config/database.php";
 
 $category_id = $_GET['category_id'] ?? null;
 
 if ($category_id === null) {
     echo json_encode(["success" => false, "message" => "Kategori ID eksik."]);
-    exit;
-}
-
-$conn = new mysqli($host, $username, $password, $dbname);
-if ($conn->connect_error) {
-    echo json_encode(["success" => false, "message" => "Veritabanı bağlantı hatası."]);
     exit;
 }
 
