@@ -21,6 +21,7 @@ SELECT
   o.id AS order_id,
   o.total_price,
   o.shipping_price,
+  o.coupon_discount,  -- 💡 EKLENDİ
   o.status AS order_status,
   o.created_at,
 
@@ -54,6 +55,7 @@ while ($row = $result->fetch_assoc()) {
             'id' => $oid,
             'total_price' => $row['total_price'],
             'shipping_price' => $row['shipping_price'],
+            'coupon_discount' => $row['coupon_discount'], // 💡 EKLENDİ
             'order_status' => $row['order_status'],
             'created_at' => $row['created_at'],
             'items' => []

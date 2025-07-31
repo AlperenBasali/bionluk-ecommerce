@@ -22,12 +22,31 @@ $expiry_month = trim($data['expiry_month'] ?? '');
 $expiry_year = trim($data['expiry_year'] ?? '');
 $cvv = trim($data['cvv'] ?? '');
 $grand_total = floatval($data['grand_total'] ?? 0);
+$coupon_discount = floatval($data['coupon_discount'] ?? 0);
 $shipping_price = 50.00; // sabit kargo ücreti
 
-// Basit ödeme doğrulama
 if (!$billing_address_id || !$card_name || strlen($card_number) !== 16 || strlen($cvv) !== 3) {
     echo json_encode(["success" => false, "message" => "Geçersiz veya eksik ödeme bilgisi."]);
     exit;
+}
+
+// Kuponla ilişkili ürün ID'lerini çek
+$applied_coupon_product_ids = [];
+
+if ($coupon_discount > 0) {
+    $sql_coupon_products = "
+        SELECT pc.product_id 
+        FROM user_coupons uc
+        JOIN product_coupons pc ON uc.coupon_id = pc.coupon_id
+        WHERE uc.user_id = ?
+    ";
+    $stmt_cp = $conn->prepare($sql_coupon_products);
+    $stmt_cp->bind_param("i", $user_id);
+    $stmt_cp->execute();
+    $result_cp = $stmt_cp->get_result();
+    while ($row = $result_cp->fetch_assoc()) {
+        $applied_coupon_product_ids[] = $row['product_id'];
+    }
 }
 
 // 1. Seçili ürünleri al
@@ -63,15 +82,24 @@ try {
 
     foreach ($vendor_orders as $vendor_id => $items) {
         $order_total = 0;
+        $has_coupon_items = false;
+
         foreach ($items as $item) {
             $order_total += $item['price'] * $item['quantity'];
+
+            if (in_array($item['product_id'], $applied_coupon_product_ids)) {
+                $has_coupon_items = true;
+            }
         }
 
+        // Sadece kupona uygun ürün içeren vendor’a indirim uygulanır
+        $vendor_coupon_discount = $has_coupon_items ? $coupon_discount : 0;
+
         // 2. orders tablosuna vendor bazlı sipariş ekle
-        $order_sql = "INSERT INTO orders (user_id, vendor_id, total_price, shipping_price, status, address_id, created_at, updated_at) 
-                      VALUES (?, ?, ?, ?, 'onay_bekliyor', ?, NOW(), NOW())";
+        $order_sql = "INSERT INTO orders (user_id, vendor_id, total_price, shipping_price, coupon_discount, status, address_id, created_at, updated_at) 
+                      VALUES (?, ?, ?, ?, ?, 'onay_bekliyor', ?, NOW(), NOW())";
         $order_stmt = $conn->prepare($order_sql);
-        $order_stmt->bind_param("iiddi", $user_id, $vendor_id, $order_total, $shipping_price, $billing_address_id);
+        $order_stmt->bind_param("iidddi", $user_id, $vendor_id, $order_total, $shipping_price, $vendor_coupon_discount, $billing_address_id);
         $order_stmt->execute();
 
         $order_id = $conn->insert_id;
@@ -100,3 +128,4 @@ try {
     $conn->rollback();
     echo json_encode(["success" => false, "message" => "Sipariş kaydedilemedi: " . $e->getMessage()]);
 }
+?>
