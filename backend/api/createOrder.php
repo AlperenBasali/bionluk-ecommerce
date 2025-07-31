@@ -83,7 +83,7 @@ try {
     $order_id = $conn->insert_id;
     $orderIds[] = $order_id;
 
-    $stmtItem = $conn->prepare("INSERT INTO order_items (order_id, product_id, vendor_id, quantity, price, commission_amount) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmtItem = $conn->prepare("INSERT INTO order_items (order_id, product_id, vendor_id, quantity, price, commission_amount, vat_amount, total_with_vat) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     if (!$stmtItem) throw new Exception("Order_items prepare hatası: " . $conn->error);
 
     foreach ($products as $item) {
@@ -91,11 +91,35 @@ try {
       $quantity = intval($item['quantity']);
       $price = floatval($item['price']);
       $total_price = $price * $quantity;
+
+      // Ürünün vat_rate'i alınır
+      $stmtVat = $conn->prepare("SELECT vat_rate FROM products WHERE id = ?");
+      $stmtVat->bind_param("i", $product_id);
+      $stmtVat->execute();
+      $resultVat = $stmtVat->get_result();
+      $productData = $resultVat->fetch_assoc();
+      $vat_rate = isset($productData['vat_rate']) ? floatval($productData['vat_rate']) : 20.00;
+      $stmtVat->close();
+
+      // Komisyon tutarı
       $commission_amount = (float)($total_price * ($commission_rate / 100));
+      // KDV komisyonlu toplam üzerinden hesaplanır
+      $vat_amount = (($total_price + $commission_amount) * ($vat_rate / 100));
+      $total_with_vat = $total_price + $commission_amount + $vat_amount;
 
-      error_log("[ORDER_ITEM] order_id: $order_id | product_id: $product_id | vendor_id: $vendor_id | quantity: $quantity | price: $price | total_price: $total_price | commission_rate: $commission_rate | commission_amount: $commission_amount");
+      error_log("[ORDER_ITEM] order_id: $order_id | product_id: $product_id | vendor_id: $vendor_id | quantity: $quantity | price: $price | total_price: $total_price | commission_rate: $commission_rate | commission_amount: $commission_amount | vat_rate: $vat_rate | vat_amount: $vat_amount | total_with_vat: $total_with_vat");
 
-      $stmtItem->bind_param("iiiidd", $order_id, $product_id, $vendor_id, $quantity, $price, $commission_amount);
+      $stmtItem->bind_param(
+        "iiiidddd",
+        $order_id,
+        $product_id,
+        $vendor_id,
+        $quantity,
+        $price,
+        $commission_amount,
+        $vat_amount,
+        $total_with_vat
+      );
       if (!$stmtItem->execute()) {
         error_log("Order_item eklenemedi: " . $stmtItem->error);
         throw new Exception("Order_item eklenemedi: " . $stmtItem->error);

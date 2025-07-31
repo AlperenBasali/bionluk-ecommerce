@@ -50,7 +50,7 @@ if ($coupon_discount > 0) {
 }
 
 // 1. Seçili ürünleri al
-$sql = "SELECT c.product_id, c.quantity, p.price, p.vendor_id
+$sql = "SELECT c.product_id, c.quantity, p.price, p.vendor_id, p.vat_rate
         FROM cart_items c
         JOIN products p ON c.product_id = p.id
         WHERE c.user_id = ? AND c.selected = 1";
@@ -97,7 +97,7 @@ try {
 
         // 2. orders tablosuna vendor bazlı sipariş ekle
         $order_sql = "INSERT INTO orders (user_id, vendor_id, total_price, shipping_price, coupon_discount, status, address_id, created_at, updated_at) 
-                      VALUES (?, ?, ?, ?, ?, 'onay_bekliyor', ?, NOW(), NOW())";
+                    VALUES (?, ?, ?, ?, ?, 'onay_bekliyor', ?, NOW(), NOW())";
         $order_stmt = $conn->prepare($order_sql);
         $order_stmt->bind_param("iidddi", $user_id, $vendor_id, $order_total, $shipping_price, $vendor_coupon_discount, $billing_address_id);
         $order_stmt->execute();
@@ -106,29 +106,45 @@ try {
         $allOrderIds[] = $order_id;
 
         // 3. order_items tablosuna ürünleri ekle
-      $item_sql = "INSERT INTO order_items (order_id, product_id, vendor_id, quantity, price, commission_amount) 
-             VALUES (?, ?, ?, ?, ?, ?)";
-$item_stmt = $conn->prepare($item_sql);
+        $item_sql = "INSERT INTO order_items (order_id, product_id, vendor_id, quantity, price, commission_amount, vat_amount, total_with_vat) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        $item_stmt = $conn->prepare($item_sql);
 
-foreach ($items as $item) {
-    // Komisyon oranını çek
-    $commission_rate = 10.00; // default
-    $stmtComm = $conn->prepare("SELECT commission_rate FROM vendor_details WHERE user_id = ?");
-    $stmtComm->bind_param("i", $vendor_id);
-    $stmtComm->execute();
-    $resComm = $stmtComm->get_result();
-    if ($rowComm = $resComm->fetch_assoc()) {
-        $commission_rate = floatval($rowComm['commission_rate']);
-    }
-    $total_price = $item['price'] * $item['quantity'];
-    $commission_amount = $total_price * ($commission_rate / 100);
+        // Komisyon oranını çek
+        $commission_rate = 10.00; // default
+        $stmtComm = $conn->prepare("SELECT commission_rate FROM vendor_details WHERE user_id = ?");
+        $stmtComm->bind_param("i", $vendor_id);
+        $stmtComm->execute();
+        $resComm = $stmtComm->get_result();
+        if ($rowComm = $resComm->fetch_assoc()) {
+            $commission_rate = floatval($rowComm['commission_rate']);
+        }
+        $stmtComm->close();
 
-    error_log("Sipariş item: order_id=$order_id, product_id={$item['product_id']}, komisyon_orani=$commission_rate, commission_amount=$commission_amount");
+        foreach ($items as $item) {
+            $total_price = $item['price'] * $item['quantity'];
+            $commission_amount = $total_price * ($commission_rate / 100);
+            $vat_rate = isset($item['vat_rate']) ? floatval($item['vat_rate']) : 20.00;
+            // KDV komisyonlu toplam üzerinden hesaplanır
+            $vat_amount = ($total_price + $commission_amount) * ($vat_rate / 100);
+            $total_with_vat = $total_price + $commission_amount + $vat_amount;
 
-    $item_stmt->bind_param("iiiidd", $order_id, $item['product_id'], $vendor_id, $item['quantity'], $item['price'], $commission_amount);
-    $item_stmt->execute();
-}
+            error_log("Sipariş item: order_id=$order_id, product_id={$item['product_id']}, komisyon_orani=$commission_rate, commission_amount=$commission_amount, vat_rate=$vat_rate, vat_amount=$vat_amount, total_with_vat=$total_with_vat");
 
+            $item_stmt->bind_param(
+                "iiiidddd",
+                $order_id,
+                $item['product_id'],
+                $vendor_id,
+                $item['quantity'],
+                $item['price'],
+                $commission_amount,
+                $vat_amount,
+                $total_with_vat
+            );
+            $item_stmt->execute();
+        }
+        $item_stmt->close();
     }
 
     // 4. Sepetten seçili ürünleri sil
