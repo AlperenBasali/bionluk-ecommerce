@@ -50,7 +50,7 @@ if ($coupon_discount > 0) {
 }
 
 // 1. Seçili ürünleri al
-$sql = "SELECT c.product_id, c.quantity, p.price, p.vendor_id, p.vat_rate
+$sql = "SELECT c.product_id, c.quantity, p.price, p.vendor_id
         FROM cart_items c
         JOIN products p ON c.product_id = p.id
         WHERE c.user_id = ? AND c.selected = 1";
@@ -105,9 +105,9 @@ try {
         $order_id = $conn->insert_id;
         $allOrderIds[] = $order_id;
 
-        // 3. order_items tablosuna ürünleri ekle
-        $item_sql = "INSERT INTO order_items (order_id, product_id, vendor_id, quantity, price, commission_amount, vat_amount, total_with_vat) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        // 3. order_items tablosuna ürünleri ekle (KDV yok!)
+        $item_sql = "INSERT INTO order_items (order_id, product_id, vendor_id, quantity, price, commission_amount) 
+                VALUES (?, ?, ?, ?, ?, ?)";
         $item_stmt = $conn->prepare($item_sql);
 
         // Komisyon oranını çek
@@ -124,30 +124,58 @@ try {
         foreach ($items as $item) {
             $total_price = $item['price'] * $item['quantity'];
             $commission_amount = $total_price * ($commission_rate / 100);
-            $vat_rate = isset($item['vat_rate']) ? floatval($item['vat_rate']) : 20.00;
-            // KDV komisyonlu toplam üzerinden hesaplanır
-            $vat_amount = ($total_price + $commission_amount) * ($vat_rate / 100);
-            $total_with_vat = $total_price + $commission_amount + $vat_amount;
-
-            error_log("Sipariş item: order_id=$order_id, product_id={$item['product_id']}, komisyon_orani=$commission_rate, commission_amount=$commission_amount, vat_rate=$vat_rate, vat_amount=$vat_amount, total_with_vat=$total_with_vat");
 
             $item_stmt->bind_param(
-                "iiiidddd",
+                "iiiidd",
                 $order_id,
                 $item['product_id'],
                 $vendor_id,
                 $item['quantity'],
                 $item['price'],
-                $commission_amount,
-                $vat_amount,
-                $total_with_vat
+                $commission_amount
             );
             $item_stmt->execute();
         }
         $item_stmt->close();
     }
 
-    // 4. Sepetten seçili ürünleri sil
+    // **** 4. HER SİPARİŞ İÇİN EMANET HAVUZU KAYDI EKLE (wallet_transactions) EKLENDİ ****
+  $wallet_sql = "INSERT INTO wallet_transactions 
+    (vendor_id, order_id, amount, description, type, status, created_at)
+    VALUES (?, ?, ?, ?, 'escrow_fonu', 'pending', NOW())";
+$wallet_stmt = $conn->prepare($wallet_sql);
+
+foreach ($orderIds as $order_id) {
+    // Siparişten vendor_user_id ve tutarı çek
+    $order_query = $conn->prepare("SELECT vendor_id, total_price FROM orders WHERE id = ?");
+    $order_query->bind_param("i", $order_id);
+    $order_query->execute();
+    $order_query->bind_result($vendor_user_id, $order_total);
+    $order_query->fetch();
+    $order_query->close();
+
+    // Vendor_details.id'yi bul
+    $vendor_detail_query = $conn->prepare("SELECT id FROM vendor_details WHERE user_id = ?");
+    $vendor_detail_query->bind_param("i", $vendor_user_id);
+    $vendor_detail_query->execute();
+    $vendor_detail_query->bind_result($vendor_detail_id);
+    $vendor_detail_query->fetch();
+    $vendor_detail_query->close();
+
+    $desc = "Sipariş #$order_id için emanet fonu";
+    $wallet_stmt->bind_param("iids", $vendor_detail_id, $order_id, $order_total, $desc);
+
+    if (!$wallet_stmt->execute()) {
+        error_log("[EMANET HATA] order_id: $order_id | Hata: " . $wallet_stmt->error);
+        throw new Exception("Emanet fonu eklenemedi: " . $wallet_stmt->error);
+    } else {
+        error_log("[EMANET] order_id: $order_id | vendor_detail_id: $vendor_detail_id | amount: $order_total | status: pending");
+    }
+}
+$wallet_stmt->close();
+
+
+    // **** 5. Sepetten seçili ürünleri sil ****
     $delete_sql = "DELETE FROM cart_items WHERE user_id = ? AND selected = 1";
     $delete_stmt = $conn->prepare($delete_sql);
     $delete_stmt->bind_param("i", $user_id);

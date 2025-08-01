@@ -33,7 +33,7 @@ $order = $stmt->get_result()->fetch_assoc();
 if (!$order) die("Sipariş bulunamadı!");
 
 // 2. Sipariş ürünlerini çek
-$sqlItems = "SELECT oi.*, p.name, p.vat_rate 
+$sqlItems = "SELECT oi.*, p.name
 FROM order_items oi 
 JOIN products p ON oi.product_id = p.id 
 WHERE oi.order_id = ?";
@@ -82,51 +82,43 @@ if ($order['firma_adi']) {
 }
 $pdf->Ln(4);
 
-// Tablo başlıkları (bold ile!)
+// Tablo başlıkları (KDV yok!)
 $pdf->SetFont('DejaVu', 'B', 10);
 $pdf->Cell(60, 7, tr('Ürün'), 1);
 $pdf->Cell(18, 7, tr('Adet'), 1, 0, 'C');
-$pdf->Cell(30, 7, tr('Birim Fiyat'), 1, 0, 'R');
-$pdf->Cell(18, 7, tr('KDV'), 1, 0, 'R');
-$pdf->Cell(30, 7, tr('Komisyon'), 1, 0, 'R');
-$pdf->Cell(30, 7, tr('Tutar'), 1, 1, 'R');
+$pdf->Cell(35, 7, tr('Birim Fiyat'), 1, 0, 'R');
+$pdf->Cell(35, 7, tr('Komisyon'), 1, 0, 'R');
+$pdf->Cell(35, 7, tr('Tutar'), 1, 1, 'R');
 
-// Tablo verileri (regular)
+// Tablo verileri
 $pdf->SetFont('DejaVu', '', 10);
 $grandTotal = 0;
-$totalVat = 0;
 $totalCommission = 0;
 
 foreach ($items as $item) {
     $productName = $item['name'];
     $quantity = $item['quantity'];
     $unitPrice = $item['price'];
-    $vatRate = $item['vat_rate'];
     $commission = $item['commission_amount'] ?? 0;
 
     $total = $unitPrice * $quantity;
-    $vat = $total * ($vatRate / 100);
 
     $pdf->Cell(60, 7, tr($productName), 1);
     $pdf->Cell(18, 7, $quantity, 1, 0, 'C');
-    $pdf->Cell(30, 7, number_format($unitPrice, 2), 1, 0, 'R');
-    $pdf->Cell(18, 7, number_format($vat, 2), 1, 0, 'R');
-    $pdf->Cell(30, 7, number_format($commission, 2), 1, 0, 'R');
-    $pdf->Cell(30, 7, number_format($total + $vat, 2), 1, 1, 'R');
+    $pdf->Cell(35, 7, number_format($unitPrice, 2), 1, 0, 'R');
+    $pdf->Cell(35, 7, number_format($commission, 2), 1, 0, 'R');
+    $pdf->Cell(35, 7, number_format($total, 2), 1, 1, 'R');
 
-    $grandTotal += $total + $vat;
-    $totalVat += $vat;
+    $grandTotal += $total;
     $totalCommission += $commission;
 }
 
 // Alt toplamlar (bold)
 $pdf->SetFont('DejaVu', 'B', 10);
-$pdf->Cell(156, 8, tr('TOPLAM KDV'), 1);
-$pdf->Cell(30, 8, number_format($totalVat, 2), 1, 1, 'R');
-$pdf->Cell(156, 8, tr('TOPLAM KOMİSYON'), 1);
-$pdf->Cell(30, 8, number_format($totalCommission, 2), 1, 1, 'R');
-$pdf->Cell(156, 8, tr('GENEL TOPLAM'), 1);
-$pdf->Cell(30, 8, number_format($grandTotal, 2), 1, 1, 'R');
+$pdf->Cell(148, 8, tr('TOPLAM KOMİSYON'), 1);
+$pdf->Cell(35, 8, number_format($totalCommission, 2), 1, 1, 'R');
+$pdf->Cell(148, 8, tr('GENEL TOPLAM'), 1);
+$pdf->Cell(35, 8, number_format($grandTotal, 2), 1, 1, 'R');
 
 // Son not (regular)
 $pdf->Ln(5);
