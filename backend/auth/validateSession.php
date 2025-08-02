@@ -35,6 +35,7 @@ http_response_code(200);
 echo json_encode([
     'authenticated' => true,
     'email' => $_SESSION['admin_email'] ?? null,
+    'role' => 'admin', // <-- Burası önemli!
     'message' => 'Oturum aktif'
 ]);
 exit();
