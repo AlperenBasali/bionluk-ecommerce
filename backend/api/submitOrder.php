@@ -137,6 +137,18 @@ try {
             $item_stmt->execute();
         }
         $item_stmt->close();
+        
+          foreach ($items as $item) {
+        $product_id = $item['product_id'];
+        $quantity = $item['quantity'];
+        $update_stock = $conn->prepare("UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?");
+        $update_stock->bind_param("iii", $quantity, $product_id, $quantity);
+        $update_stock->execute();
+        if ($update_stock->affected_rows === 0) {
+            throw new Exception("Stok yetersiz: Ürün ID $product_id, istenen: $quantity");
+        }
+        $update_stock->close();
+    }
     }
 
     // **** 4. HER SİPARİŞ İÇİN EMANET HAVUZU KAYDI EKLE (wallet_transactions) EKLENDİ ****

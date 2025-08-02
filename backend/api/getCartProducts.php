@@ -27,6 +27,7 @@ $sql = "SELECT
     p.name,
     p.price,
     p.vendor_id,
+    p.stock,
     v.full_name AS vendor_name,
     (
         SELECT image_url 
@@ -132,6 +133,7 @@ while ($row = $result->fetch_assoc()) {
         "image" => $imageFile,
         "quantity" => (int)$row['quantity'],
         "price" => (float)$row['price'],
+         "stock" => (int)$row['stock'],  
         "variants" => $variantArray,
         "selected" => (bool)$row['selected'],
         "highlightedVariants" => $highlighted,

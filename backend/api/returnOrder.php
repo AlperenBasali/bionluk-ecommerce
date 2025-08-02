@@ -5,7 +5,6 @@ error_reporting(E_ALL);
 
 session_start();
 header("Content-Type: application/json");
-
 require_once "../config/database.php";
 
 if (!isset($_SESSION['user_id'])) {
@@ -22,32 +21,36 @@ if (!$orderId) {
   exit;
 }
 
-// Siparişin kullanıcıya ait ve iptal edilebilir olup olmadığını kontrol et
-$sql = "SELECT total_price, shipping_price, coupon_discount FROM orders WHERE id = ? AND user_id = ? AND status = 'onay_bekliyor'";
+// Siparişin kullanıcıya ait ve iade edilebilir olup olmadığını kontrol et
+$sql = "SELECT status, total_price, shipping_price, coupon_discount FROM orders WHERE id = ? AND user_id = ?";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("ii", $orderId, $userId);
 $stmt->execute();
-$result = $stmt->get_result();
+$stmt->bind_result($currentStatus, $totalPrice, $shippingPrice, $couponDiscount);
+if (!$stmt->fetch()) {
+  $stmt->close();
+  echo json_encode(["success" => false, "message" => "Sipariş bulunamadı."]);
+  exit;
+}
+$stmt->close();
 
-if ($result->num_rows === 0) {
-  echo json_encode(["success" => false, "message" => "Sipariş bulunamadı veya iptal edilemez."]);
+// Yalnızca teslim edilen veya onay bekliyor/iptal edilebilen siparişler iade/iptal edilebilir!
+if ($currentStatus !== 'teslim_edildi' && $currentStatus !== 'onay_bekliyor') {
+  echo json_encode(["success" => false, "message" => "Sadece uygun durumdaki siparişler iade/iptal edilebilir."]);
   exit;
 }
 
-$order = $result->fetch_assoc();
-$totalPrice = floatval($order['total_price']);
-$shippingPrice = floatval($order['shipping_price']);
-$couponDiscount = floatval($order['coupon_discount']);
-$refundAmount = $totalPrice + $shippingPrice - $couponDiscount;
+// Durumu belirle (iade/iptal)
+$newStatus = $currentStatus === 'teslim_edildi' ? 'iade' : 'iptal';
 
 // Sipariş durumunu güncelle
-$update = $conn->prepare("UPDATE orders SET status = 'iptal', updated_at = NOW() WHERE id = ?");
-$update->bind_param("i", $orderId);
+$update = $conn->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
+$update->bind_param("si", $newStatus, $orderId);
 $success = $update->execute();
 $update->close();
 
 if ($success) {
-  // 1. Siparişteki ürünleri bul ve stoğu artır
+  // Stoğu geri ekle
   $sqlItems = "SELECT product_id, quantity FROM order_items WHERE order_id = ?";
   $stmtItems = $conn->prepare($sqlItems);
   $stmtItems->bind_param('i', $orderId);
@@ -62,13 +65,15 @@ if ($success) {
   }
   $stmtItems->close();
 
-  // 2. PARA İADESİ: Kullanıcı cüzdanına aktar
-  // user_wallet tablosu yoksa oluşturulur, varsa güncellenir
+  // İADE TUTARI HESAPLA ve CÜZDANA AKTAR
+  $refundAmount = floatval($totalPrice) + floatval($shippingPrice) - floatval($couponDiscount);
+
+  // 1. user_wallet tablosuna ekle (yoksa önce INSERT ile oluşturmalısın)
   $conn->query("INSERT INTO user_wallet (user_id, balance) VALUES ($userId, 0) ON DUPLICATE KEY UPDATE balance = balance + $refundAmount");
 
-  // Hareket geçmişine kayıt ekle
-  $desc = 'Sipariş iptali - #' . $orderId;
-  $type = 'iptal';
+  // 2. user_wallet_transactions tablosuna kayıt ekle
+  $desc = $newStatus === 'iade' ? 'Sipariş iadesi' : 'Sipariş iptali';
+  $type = $newStatus;
   $stmtTrans = $conn->prepare("INSERT INTO user_wallet_transactions (user_id, amount, type, description) VALUES (?, ?, ?, ?)");
   $stmtTrans->bind_param("idss", $userId, $refundAmount, $type, $desc);
   $stmtTrans->execute();
@@ -78,7 +83,7 @@ if ($success) {
 } else {
   echo json_encode([
     "success" => false,
-    "message" => "İptal sırasında hata oluştu.",
+    "message" => "İade sırasında hata oluştu.",
     "error" => $conn->error
   ]);
 }
