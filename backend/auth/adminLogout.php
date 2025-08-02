@@ -1,5 +1,9 @@
 <?php
 session_start();
+header("Access-Control-Allow-Origin: http://localhost:3000"); // Frontend adresin
+header("Access-Control-Allow-Credentials: true");
+header("Content-Type: application/json"); // veya text/html
+
 header('Content-Type: application/json');
 
 // Oturumu sonlandır
