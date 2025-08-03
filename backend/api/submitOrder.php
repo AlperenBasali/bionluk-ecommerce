@@ -23,7 +23,7 @@ $expiry_year = trim($data['expiry_year'] ?? '');
 $cvv = trim($data['cvv'] ?? '');
 $grand_total = floatval($data['grand_total'] ?? 0);
 $coupon_discount = floatval($data['coupon_discount'] ?? 0);
-$shipping_price = 50.00; // sabit kargo ücreti
+// $shipping_price = 50.00; // ARTIK sabit değil!
 
 if (!$billing_address_id || !$card_name || strlen($card_number) !== 16 || strlen($cvv) !== 3) {
     echo json_encode(["success" => false, "message" => "Geçersiz veya eksik ödeme bilgisi."]);
@@ -48,6 +48,15 @@ if ($coupon_discount > 0) {
         $applied_coupon_product_ids[] = $row['product_id'];
     }
 }
+
+// --- DİNAMİK KARGO FİYATLARINI ÇEK (shipping_settings tablosundan) ---
+$shipping_prices = [];
+$shipping_sql = "SELECT vendor_id, shipping_price FROM shipping_settings";
+$shipping_res = $conn->query($shipping_sql);
+while ($srow = $shipping_res->fetch_assoc()) {
+    $shipping_prices[$srow['vendor_id']] = floatval($srow['shipping_price']);
+}
+$general_shipping = $shipping_prices[0] ?? 0; // vendor_id=0 genel fiyat
 
 // 1. Seçili ürünleri al
 $sql = "SELECT c.product_id, c.quantity, p.price, p.vendor_id
@@ -86,26 +95,28 @@ try {
 
         foreach ($items as $item) {
             $order_total += $item['price'] * $item['quantity'];
-
             if (in_array($item['product_id'], $applied_coupon_product_ids)) {
                 $has_coupon_items = true;
             }
         }
 
+        // HER VENDOR İÇİN DOĞRU KARGO FİYATINI AL
+        $vendor_shipping_price = $shipping_prices[$vendor_id] ?? $general_shipping;
+
         // Sadece kupona uygun ürün içeren vendor’a indirim uygulanır
         $vendor_coupon_discount = $has_coupon_items ? $coupon_discount : 0;
 
-        // 2. orders tablosuna vendor bazlı sipariş ekle
+        // orders tablosuna vendor bazlı sipariş ekle
         $order_sql = "INSERT INTO orders (user_id, vendor_id, total_price, shipping_price, coupon_discount, status, address_id, created_at, updated_at) 
                     VALUES (?, ?, ?, ?, ?, 'onay_bekliyor', ?, NOW(), NOW())";
         $order_stmt = $conn->prepare($order_sql);
-        $order_stmt->bind_param("iidddi", $user_id, $vendor_id, $order_total, $shipping_price, $vendor_coupon_discount, $billing_address_id);
+        $order_stmt->bind_param("iidddi", $user_id, $vendor_id, $order_total, $vendor_shipping_price, $vendor_coupon_discount, $billing_address_id);
         $order_stmt->execute();
 
         $order_id = $conn->insert_id;
         $allOrderIds[] = $order_id;
 
-        // 3. order_items tablosuna ürünleri ekle (KDV yok!)
+        // order_items tablosuna ürünleri ekle (KDV yok!)
         $item_sql = "INSERT INTO order_items (order_id, product_id, vendor_id, quantity, price, commission_amount) 
                 VALUES (?, ?, ?, ?, ?, ?)";
         $item_stmt = $conn->prepare($item_sql);
@@ -137,57 +148,56 @@ try {
             $item_stmt->execute();
         }
         $item_stmt->close();
-        
-          foreach ($items as $item) {
-        $product_id = $item['product_id'];
-        $quantity = $item['quantity'];
-        $update_stock = $conn->prepare("UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?");
-        $update_stock->bind_param("iii", $quantity, $product_id, $quantity);
-        $update_stock->execute();
-        if ($update_stock->affected_rows === 0) {
-            throw new Exception("Stok yetersiz: Ürün ID $product_id, istenen: $quantity");
+
+        foreach ($items as $item) {
+            $product_id = $item['product_id'];
+            $quantity = $item['quantity'];
+            $update_stock = $conn->prepare("UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?");
+            $update_stock->bind_param("iii", $quantity, $product_id, $quantity);
+            $update_stock->execute();
+            if ($update_stock->affected_rows === 0) {
+                throw new Exception("Stok yetersiz: Ürün ID $product_id, istenen: $quantity");
+            }
+            $update_stock->close();
         }
-        $update_stock->close();
-    }
     }
 
-    // **** 4. HER SİPARİŞ İÇİN EMANET HAVUZU KAYDI EKLE (wallet_transactions) EKLENDİ ****
-  $wallet_sql = "INSERT INTO wallet_transactions 
-    (vendor_id, order_id, amount, description, type, status, created_at)
-    VALUES (?, ?, ?, ?, 'escrow_fonu', 'pending', NOW())";
-$wallet_stmt = $conn->prepare($wallet_sql);
+    // HER SİPARİŞ İÇİN EMANET HAVUZU KAYDI EKLE (wallet_transactions)
+    $wallet_sql = "INSERT INTO wallet_transactions 
+        (vendor_id, order_id, amount, description, type, status, created_at)
+        VALUES (?, ?, ?, ?, 'escrow_fonu', 'pending', NOW())";
+    $wallet_stmt = $conn->prepare($wallet_sql);
 
-foreach ($orderIds as $order_id) {
-    // Siparişten vendor_user_id ve tutarı çek
-    $order_query = $conn->prepare("SELECT vendor_id, total_price FROM orders WHERE id = ?");
-    $order_query->bind_param("i", $order_id);
-    $order_query->execute();
-    $order_query->bind_result($vendor_user_id, $order_total);
-    $order_query->fetch();
-    $order_query->close();
+    foreach ($allOrderIds as $order_id) {
+        // Siparişten vendor_user_id ve tutarı çek
+        $order_query = $conn->prepare("SELECT vendor_id, total_price FROM orders WHERE id = ?");
+        $order_query->bind_param("i", $order_id);
+        $order_query->execute();
+        $order_query->bind_result($vendor_user_id, $order_total);
+        $order_query->fetch();
+        $order_query->close();
 
-    // Vendor_details.id'yi bul
-    $vendor_detail_query = $conn->prepare("SELECT id FROM vendor_details WHERE user_id = ?");
-    $vendor_detail_query->bind_param("i", $vendor_user_id);
-    $vendor_detail_query->execute();
-    $vendor_detail_query->bind_result($vendor_detail_id);
-    $vendor_detail_query->fetch();
-    $vendor_detail_query->close();
+        // Vendor_details.id'yi bul
+        $vendor_detail_query = $conn->prepare("SELECT id FROM vendor_details WHERE user_id = ?");
+        $vendor_detail_query->bind_param("i", $vendor_user_id);
+        $vendor_detail_query->execute();
+        $vendor_detail_query->bind_result($vendor_detail_id);
+        $vendor_detail_query->fetch();
+        $vendor_detail_query->close();
 
-    $desc = "Sipariş #$order_id için emanet fonu";
-    $wallet_stmt->bind_param("iids", $vendor_detail_id, $order_id, $order_total, $desc);
+        $desc = "Sipariş #$order_id için emanet fonu";
+        $wallet_stmt->bind_param("iids", $vendor_detail_id, $order_id, $order_total, $desc);
 
-    if (!$wallet_stmt->execute()) {
-        error_log("[EMANET HATA] order_id: $order_id | Hata: " . $wallet_stmt->error);
-        throw new Exception("Emanet fonu eklenemedi: " . $wallet_stmt->error);
-    } else {
-        error_log("[EMANET] order_id: $order_id | vendor_detail_id: $vendor_detail_id | amount: $order_total | status: pending");
+        if (!$wallet_stmt->execute()) {
+            error_log("[EMANET HATA] order_id: $order_id | Hata: " . $wallet_stmt->error);
+            throw new Exception("Emanet fonu eklenemedi: " . $wallet_stmt->error);
+        } else {
+            error_log("[EMANET] order_id: $order_id | vendor_detail_id: $vendor_detail_id | amount: $order_total | status: pending");
+        }
     }
-}
-$wallet_stmt->close();
+    $wallet_stmt->close();
 
-
-    // **** 5. Sepetten seçili ürünleri sil ****
+    // Sepetten seçili ürünleri sil
     $delete_sql = "DELETE FROM cart_items WHERE user_id = ? AND selected = 1";
     $delete_stmt = $conn->prepare($delete_sql);
     $delete_stmt->bind_param("i", $user_id);

@@ -28,6 +28,7 @@ if ($result->num_rows === 1) {
     $_SESSION['admin_logged_in'] = true;
     $_SESSION['admin_id'] = $admin['id'];
     $_SESSION['admin_email'] = $admin['email'];
+    $_SESSION['role'] = $admin['role']; // <--- ROLE EKLENDİ
     $_SESSION['last_activity'] = time();
 
     echo "Hesabınız başarıyla doğrulandı. 3 saniye içinde yönlendiriliyorsunuz...";

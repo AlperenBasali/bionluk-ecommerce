@@ -15,15 +15,18 @@ if (!isUserLoggedIn()) {
 
 $user_id = getUserId();
 
-// Siparişleri ve ürünlerini çek
+// Siparişleri, ürünlerini ve satıcı adını çek
 $sql = "
 SELECT 
   o.id AS order_id,
   o.total_price,
   o.shipping_price,
-  o.coupon_discount,  -- 💡 EKLENDİ
+  o.coupon_discount, 
   o.status AS order_status,
   o.created_at,
+  o.vendor_id,
+
+  v.full_name AS vendor_name,  -- 💡 SATICI ADI EKLENDİ
 
   oi.id AS order_item_id,
   oi.quantity,
@@ -36,8 +39,9 @@ FROM orders o
 JOIN order_items oi ON o.id = oi.order_id
 JOIN products p ON oi.product_id = p.id
 LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_main = 1
+LEFT JOIN vendor_details v ON o.vendor_id = v.user_id   -- 💡 vendor_name için
 WHERE o.user_id = ?
-ORDER BY o.created_at DESC
+ORDER BY o.created_at DESC, o.id DESC
 ";
 
 $stmt = $conn->prepare($sql);
@@ -53,11 +57,13 @@ while ($row = $result->fetch_assoc()) {
     if (!isset($orders[$oid])) {
         $orders[$oid] = [
             'id' => $oid,
-            'total_price' => $row['total_price'],
-            'shipping_price' => $row['shipping_price'],
-            'coupon_discount' => $row['coupon_discount'], // 💡 EKLENDİ
+            'total_price' => floatval($row['total_price']),
+            'shipping_price' => floatval($row['shipping_price']),
+            'coupon_discount' => floatval($row['coupon_discount']),
             'order_status' => $row['order_status'],
             'created_at' => $row['created_at'],
+            'vendor_id' => $row['vendor_id'],                        // 💡
+            'vendor_name' => $row['vendor_name'] ?? null,            // 💡
             'items' => []
         ];
     }
@@ -65,8 +71,8 @@ while ($row = $result->fetch_assoc()) {
     $orders[$oid]['items'][] = [
         'id' => $row['order_item_id'],
         'product_name' => $row['product_name'],
-        'quantity' => $row['quantity'],
-        'price' => $row['price'],
+        'quantity' => intval($row['quantity']),
+        'price' => floatval($row['price']),
         'image' => basename($row['image_url'] ?? 'default.png')
     ];
 }
