@@ -1,28 +1,31 @@
 Array
 (
-    [name] => giyim12
+    [name] => a
     [kategori] => 2
-    [fiyat] => 51
+    [fiyat] => 532
     [stok] => 5
-    [barkod] => 33
-    [agirlik] => 3
-    [boyutlar] => 3
-    [aciklama] => lorem lorem loremloremloremloremlorem
+    [barkod] => 5
+    [agirlik] => 32
+    [boyutlar] => 5
+    [aciklama] => a
+    [ucretsiz_kargo] => 1
+    [taksit_var] => 1
+    [taksit_sayisi] => 5
     [varyant] => Array
         (
-            [12] => Kırmızı
+            [12] => Mavi
             [19] => 3
             [22] => S
-            [25] => 35
+            [25] => 33
             [26] => geometrik
         )
 
     [one_cikan] => Array
         (
-            [0] => 22
+            [0] => 12
             [1] => 19
-            [2] => 12
-            [3] => 26
+            [2] => 22
+            [3] => 25
         )
 
 )

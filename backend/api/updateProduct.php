@@ -1,18 +1,12 @@
 <?php
 session_start(); // ✅ Vendor kontrolü için gerekli
 
-include "../config/database.php";
+require_once "../config/database.php";
 
 // CORS ve JSON header
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json");
 
-// Veritabanı bağlantısı
-$conn = new mysqli($host, $username, $password, $dbname);
-if ($conn->connect_error) {
-    echo json_encode(["success" => false, "message" => "Veritabanı bağlantı hatası."]);
-    exit;
-}
 
 // Giriş kontrolü
 if (!isset($_SESSION['vendor_id'])) {
@@ -28,6 +22,9 @@ $name = $_POST['name'] ?? "";
 $kategori = $_POST['kategori'] ?? "";
 $fiyat = $_POST['fiyat'] ?? 0;
 $stok = $_POST['stok'] ?? 0;
+$ucretsiz_kargo = isset($_POST['ucretsiz_kargo']) ? (int)$_POST['ucretsiz_kargo'] : 0;
+$taksit_var = isset($_POST['taksit_var']) ? (int)$_POST['taksit_var'] : 0;
+$taksit_sayisi = isset($_POST['taksit_sayisi']) ? (int)$_POST['taksit_sayisi'] : 0;
 
 if (!$id) {
     echo json_encode(["success" => false, "message" => "Ürün ID gerekli."]);
@@ -47,8 +44,11 @@ if ($stmtCheck->num_rows === 0) {
 $stmtCheck->close();
 
 // 1. Ürün bilgilerini güncelle
-$stmt = $conn->prepare("UPDATE products SET name = ?, category_id = ?, price = ?, stock = ? WHERE id = ?");
-$stmt->bind_param("siddi", $name, $kategori, $fiyat, $stok, $id);
+$stmt = $conn->prepare("UPDATE products 
+    SET name = ?, category_id = ?, price = ?, stock = ?, 
+        ucretsiz_kargo = ?, taksit_var = ?, taksit_sayisi = ?
+    WHERE id = ?");
+$stmt->bind_param("siddiiii", $name, $kategori, $fiyat, $stok, $ucretsiz_kargo, $taksit_var, $taksit_sayisi, $id);
 if (!$stmt->execute()) {
     echo json_encode(["success" => false, "message" => "Ürün güncellenemedi.", "error" => $stmt->error]);
     exit;

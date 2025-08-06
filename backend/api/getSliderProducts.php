@@ -31,27 +31,29 @@ if ($category_id > 0) {
     $placeholders = implode(',', array_fill(0, count($allCategoryIds), '?'));
     $types = str_repeat('i', count($allCategoryIds));
 
-    $sql = "
-        SELECT p.id, p.name, p.price, p.description, c.name AS category_name 
-        FROM products p 
-        LEFT JOIN categories c ON p.category_id = c.id 
-        WHERE p.category_id IN ($placeholders)
-        ORDER BY p.created_at DESC 
-        LIMIT 10
-    ";
+   $sql = "
+    SELECT p.id, p.name, p.price, p.description, c.name AS category_name, 
+            p.ucretsiz_kargo, p.taksit_var, p.taksit_sayisi
+    FROM products p 
+    LEFT JOIN categories c ON p.category_id = c.id 
+    WHERE p.category_id IN ($placeholders)
+    ORDER BY p.created_at DESC 
+    LIMIT 10
+";
 
     $stmt = $conn->prepare($sql);
     $stmt->bind_param($types, ...$allCategoryIds);
     $stmt->execute();
     $result = $stmt->get_result();
 } else {
-    $sql = "
-        SELECT p.id, p.name, p.price, p.description, c.name AS category_name 
-        FROM products p 
-        LEFT JOIN categories c ON p.category_id = c.id 
-        ORDER BY p.created_at DESC 
-        LIMIT 10
-    ";
+   $sql = "
+    SELECT p.id, p.name, p.price, p.description, c.name AS category_name, 
+            p.ucretsiz_kargo, p.taksit_var, p.taksit_sayisi
+    FROM products p 
+    LEFT JOIN categories c ON p.category_id = c.id 
+    ORDER BY p.created_at DESC 
+    LIMIT 10
+";
     $result = $conn->query($sql);
 }
 
@@ -98,6 +100,9 @@ while ($row = $result->fetch_assoc()) {
         "rating" => floatval($rating),
         "review_count" => (int)$review_count, // ✅ EKLENDİ
         "link" => "/product/{$row["id"]}",
+        "ucretsiz_kargo" => (int)$row["ucretsiz_kargo"], 
+        "taksit_var" => (int)$row["taksit_var"],       
+        "taksit_sayisi" => (int)$row["taksit_sayisi"], 
         "category_name" => $row["category_name"] ?? ''
     ];
 }

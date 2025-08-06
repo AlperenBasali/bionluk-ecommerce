@@ -8,7 +8,6 @@ header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE");
 
 require_once '../config/database.php';
-
 header('Content-Type: application/json');
 
 // ✅ Vendor ID kontrolü
@@ -28,9 +27,23 @@ $agirlik = $_POST['agirlik'] ?? null;
 $boyutlar = $_POST['boyutlar'] ?? null;
 $description = $_POST['aciklama'] ?? null;
 
-// 1. Ürün ekle (✅ vendor_id eklendi)
-$stmt = $conn->prepare("INSERT INTO products (vendor_id, category_id, name, price, stock, barcode, agirlik, boyutlar, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-$stmt->bind_param("iisidssss", $vendor_id, $category_id, $name, $price, $stock, $barcode, $agirlik, $boyutlar, $description);
+// ROZET ALANLARI (varsayılan: 0)
+$ucretsiz_kargo = isset($_POST['ucretsiz_kargo']) && $_POST['ucretsiz_kargo'] ? 1 : 0;
+$taksit_var     = isset($_POST['taksit_var']) && $_POST['taksit_var'] ? 1 : 0;
+$taksit_sayisi  = isset($_POST['taksit_sayisi']) ? intval($_POST['taksit_sayisi']) : 0;
+
+
+// 1. Ürün ekle (✅ vendor_id, rozetler eklendi)
+$stmt = $conn->prepare(
+    "INSERT INTO products 
+    (vendor_id, category_id, name, price, stock, barcode, agirlik, boyutlar, description, ucretsiz_kargo, taksit_var, taksit_sayisi) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+);
+$stmt->bind_param(
+    "iisidssssiii", 
+    $vendor_id, $category_id, $name, $price, $stock, $barcode, $agirlik, $boyutlar, $description, $ucretsiz_kargo, $taksit_var, $taksit_sayisi
+);
+
 $success = $stmt->execute();
 
 if (!$success) {
@@ -38,6 +51,7 @@ if (!$success) {
     exit;
 }
 $product_id = $stmt->insert_id;
+$stmt->close();
 
 // 2. Ana görsel yükle ve kaydet
 if (isset($_FILES['anaGorsel']) && $_FILES['anaGorsel']['error'] == 0) {
@@ -74,9 +88,9 @@ foreach ($_FILES as $key => $file) {
 // 4. Varyantları işle
 foreach ($_POST as $key => $val) {
     if (preg_match('/^varyant\[(.+)\]$/', $key, $matches)) {
-        $variant_id = $matches[1];        // ID geliyor
+        $variant_id = $matches[1];
         $variant_value = $val;
-        
+
         $stmtCV = $conn->prepare("SELECT variant_name FROM category_variants WHERE id = ?");
         $stmtCV->bind_param("i", $variant_id);
         $stmtCV->execute();
@@ -134,6 +148,5 @@ foreach ($one_cikan as $variant_id) {
 }
 
 // ✅ Dönüş
-
 echo json_encode(['success' => true, 'product_id' => $product_id]);
 $conn->close();
